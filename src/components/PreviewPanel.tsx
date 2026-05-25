@@ -1,14 +1,29 @@
 import {
   SandpackProvider,
+  SandpackLayout,
   SandpackPreview,
   SandpackCodeEditor,
 } from "@codesandbox/sandpack-react"
 import { useCodeGenStore } from "../stores/codeGenStore"
-import { useState } from "react"
+import { useState, useRef, useEffect } from "react"
 
 export function PreviewPanel() {
   const { generatedFiles, activeFileIndex } = useCodeGenStore()
   const [viewMode, setViewMode] = useState<"preview" | "code">("preview")
+  const containerRef = useRef<HTMLDivElement>(null)
+  const [height, setHeight] = useState(600)
+
+  useEffect(() => {
+    const el = containerRef.current
+    if (!el) return
+    const observer = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        setHeight(entry.contentRect.height)
+      }
+    })
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [])
 
   if (generatedFiles.length === 0) {
     return (
@@ -21,37 +36,21 @@ export function PreviewPanel() {
   const activeFile = generatedFiles[activeFileIndex] ?? generatedFiles[0]
   const isTsx = activeFile.name.endsWith(".tsx") || activeFile.name.endsWith(".ts")
 
-  const appFileName = isTsx ? "App.tsx" : "App.jsx"
   const files: Record<string, string> = {
-    [appFileName]: activeFile.content,
+    "/App.tsx": activeFile.content,
+    "/styles.css":
+      "body { margin: 0; font-family: system-ui, sans-serif; } * { box-sizing: border-box; }",
   }
 
-  // Add index.tsx entry point if the generated component doesn't include one
-  if (!activeFile.content.includes("createRoot") && !activeFile.content.includes("ReactDOM")) {
-    files["index.tsx"] = `import React from "react"
-import ReactDOM from "react-dom/client"
-import App from "./App"
-import "./styles.css"
+  const ext = isTsx ? "tsx" : "jsx"
+  files[`/index.${ext}`] = `import App from "./App"
+import { createRoot } from "react-dom/client"
 
-const rootEl = document.getElementById("root")
-if (rootEl) {
-  const root = ReactDOM.createRoot(rootEl)
-  root.render(<React.StrictMode><App /></React.StrictMode>)
-}`
-  }
-
-  // Simple CSS — the Tailwind CDN script handles utility classes automatically
-  files["styles.css"] = `* {
-  box-sizing: border-box;
-}
-body {
-  margin: 0;
-  font-family: system-ui, -apple-system, sans-serif;
-  -webkit-font-smoothing: antialiased;
-}`
+createRoot(document.getElementById("root")!).render(<App />)
+`
 
   return (
-    <div className="flex flex-col h-full min-h-0">
+    <div ref={containerRef} className="flex flex-col h-full min-h-0">
       <div className="flex items-center gap-1 px-4 py-2 border-b border-zinc-800 shrink-0">
         <button
           className={`px-3 py-1 text-xs rounded transition-colors ${
@@ -74,27 +73,22 @@ body {
           Source
         </button>
       </div>
-      <div className="flex-1 min-h-0 relative">
+      <div className="flex-1 min-h-0">
         <SandpackProvider
-          template="react"
+          template="react-ts"
           files={files}
           theme="dark"
           options={{
             externalResources: ["https://cdn.tailwindcss.com"],
           }}
         >
-          {viewMode === "preview" ? (
-            <SandpackPreview
-              showNavigator={false}
-              showRefreshButton
-              style={{ height: "100%" }}
-            />
-          ) : (
-            <SandpackCodeEditor
-              showLineNumbers
-              style={{ height: "100%" }}
-            />
-          )}
+          <SandpackLayout style={{ height, border: "none", borderRadius: 0 }}>
+            {viewMode === "preview" ? (
+              <SandpackPreview showNavigator={false} showRefreshButton />
+            ) : (
+              <SandpackCodeEditor showLineNumbers />
+            )}
+          </SandpackLayout>
         </SandpackProvider>
       </div>
     </div>
