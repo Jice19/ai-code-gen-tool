@@ -11,6 +11,11 @@ interface ApiSettingsState {
 const DEFAULT_MODELS: Record<ProviderType, string> = {
   openai: "gpt-4o",
   anthropic: "claude-sonnet-4-6",
+  deepseek: "deepseek-chat",
+}
+
+const DEFAULT_BASE_URLS: Partial<Record<ProviderType, string>> = {
+  deepseek: "https://api.deepseek.com",
 }
 
 function loadSettings(): ApiSettingsState {
@@ -58,11 +63,16 @@ export function ApiSettings({
           value={settings.provider}
           onChange={(e) => {
             const provider = e.target.value as ProviderType
-            handleChange({ provider, model: DEFAULT_MODELS[provider] })
+            handleChange({
+              provider,
+              model: DEFAULT_MODELS[provider],
+              baseUrl: DEFAULT_BASE_URLS[provider] ?? "",
+            })
           }}
         >
           <option value="openai">OpenAI</option>
           <option value="anthropic">Anthropic</option>
+          <option value="deepseek">DeepSeek</option>
         </select>
         <input
           className="w-full bg-zinc-900 border border-zinc-700 rounded-lg p-2.5 text-sm text-zinc-100 placeholder-zinc-500 focus:outline-none focus:border-zinc-500"

@@ -1,4 +1,4 @@
-export type ProviderType = "openai" | "anthropic"
+export type ProviderType = "openai" | "anthropic" | "deepseek"
 
 export interface ProviderConfig {
   type: ProviderType
