@@ -1,0 +1,16 @@
+# OpenSpec Project Configuration
+name: ai-code-gen-tool
+version: 0.1.0
+description: 面向前端开发者的 AI 代码生成工具
+framework:
+  frontend: react
+  language: typescript
+  styling: tailwindcss
+  state: zustand
+
+# MVP 范围
+mvp:
+  - React 组件生成 (TS + Tailwind)
+  - 单文件代码预览
+  - 多轮对话迭代修改
+  - 复制 / 下载导出
