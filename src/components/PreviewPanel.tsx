@@ -5,22 +5,20 @@ import {
   SandpackCodeEditor,
 } from "@codesandbox/sandpack-react"
 import { useCodeGenStore } from "../stores/codeGenStore"
-import { useState, useRef, useEffect } from "react"
+import { useState, useRef, useLayoutEffect } from "react"
 
 export function PreviewPanel() {
   const { generatedFiles, activeFileIndex } = useCodeGenStore()
   const [viewMode, setViewMode] = useState<"preview" | "code">("preview")
-  const containerRef = useRef<HTMLDivElement>(null)
-  const [height, setHeight] = useState(600)
+  const contentRef = useRef<HTMLDivElement>(null)
+  const [height, setHeight] = useState(0)
 
-  useEffect(() => {
-    const el = containerRef.current
+  useLayoutEffect(() => {
+    const el = contentRef.current
     if (!el) return
-    const observer = new ResizeObserver((entries) => {
-      for (const entry of entries) {
-        setHeight(entry.contentRect.height)
-      }
-    })
+    const update = () => setHeight(el.clientHeight)
+    update()
+    const observer = new ResizeObserver(update)
     observer.observe(el)
     return () => observer.disconnect()
   }, [])
@@ -50,7 +48,7 @@ createRoot(document.getElementById("root")!).render(<App />)
 `
 
   return (
-    <div ref={containerRef} className="flex flex-col h-full min-h-0">
+    <div className="flex flex-col h-full min-h-0">
       <div className="flex items-center gap-1 px-4 py-2 border-b border-zinc-800 shrink-0">
         <button
           className={`px-3 py-1 text-xs rounded transition-colors ${
@@ -73,7 +71,7 @@ createRoot(document.getElementById("root")!).render(<App />)
           Source
         </button>
       </div>
-      <div className="flex-1 min-h-0">
+      <div ref={contentRef} className="flex-1 min-h-0">
         <SandpackProvider
           template="react-ts"
           files={files}
@@ -82,7 +80,13 @@ createRoot(document.getElementById("root")!).render(<App />)
             externalResources: ["https://cdn.tailwindcss.com"],
           }}
         >
-          <SandpackLayout style={{ height, border: "none", borderRadius: 0 }}>
+          <SandpackLayout
+            style={{
+              height: height > 0 ? `${height}px` : "100%",
+              border: "none",
+              borderRadius: 0,
+            }}
+          >
             {viewMode === "preview" ? (
               <SandpackPreview showNavigator={false} showRefreshButton />
             ) : (
