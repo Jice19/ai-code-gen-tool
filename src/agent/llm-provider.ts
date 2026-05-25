@@ -7,16 +7,21 @@ export interface ProviderConfig {
   baseUrl?: string
 }
 
+function sanitizeHeader(v: string): string {
+  return v.replace(/[^\x20-\x7E\x80-\xFF]/g, "")
+}
+
 function getHeaders(config: ProviderConfig): Record<string, string> {
+  const key = sanitizeHeader(config.apiKey)
   if (config.type === "anthropic") {
     return {
-      "x-api-key": config.apiKey,
+      "x-api-key": key,
       "anthropic-version": "2023-06-01",
       "Content-Type": "application/json",
     }
   }
   return {
-    Authorization: `Bearer ${config.apiKey}`,
+    Authorization: `Bearer ${key}`,
     "Content-Type": "application/json",
   }
 }
@@ -79,7 +84,7 @@ export async function* streamGenerate(
   config: ProviderConfig,
   messages: Array<{ role: string; content: string }>
 ): AsyncGenerator<{ content: string; tokens: number }> {
-  const endpoint = getEndpoint(config)
+  const endpoint = new URL(getEndpoint(config)).toString()
   const body = buildBody(config, messages)
 
   const response = await fetch(endpoint, {
