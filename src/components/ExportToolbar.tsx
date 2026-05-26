@@ -4,10 +4,10 @@ import { saveAs } from "file-saver"
 import { useCodeGenStore } from "../stores/codeGenStore"
 
 export function ExportToolbar() {
-  const { generatedFiles } = useCodeGenStore()
+  const { generatedFiles, activeFileIndex } = useCodeGenStore()
   const [copied, setCopied] = useState(false)
 
-  const activeFile = generatedFiles[0]
+  const activeFile = generatedFiles[activeFileIndex] ?? generatedFiles[0]
   const hasFiles = generatedFiles.length > 0
 
   const handleCopy = useCallback(async () => {
