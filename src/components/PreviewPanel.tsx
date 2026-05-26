@@ -14,47 +14,36 @@ function buildSandpackFiles(
 ): { files: Record<string, string>; template: string } {
   const files: Record<string, string> = {}
 
-  // Add all generated files at root level
-  for (const f of generatedFiles) {
-    files[`/${f.name}`] = f.content
-  }
-
   files["/styles.css"] =
     "body { margin: 0; font-family: system-ui, sans-serif; } * { box-sizing: border-box; }"
 
   if (framework === "vue") {
-    // vite-vue-ts template expects files under /src/
-    // The template's /src/main.ts already imports ./App.vue and mounts it
-    // We override /src/App.vue with the main generated component
+    // vite-vue-ts template's /src/main.ts imports ./App.vue and mounts it.
+    // Put all files under /src/ — no root-level duplication.
     const mainVue = generatedFiles.find((f) => f.name.endsWith(".vue"))
-
     if (mainVue) {
-      // Place main component at the template entry point path
       files["/src/App.vue"] = mainVue.content
     }
-
-    // Place additional generated files under /src/ for correct import resolution
     for (const f of generatedFiles) {
-      // Skip the main file — already placed as App.vue
       if (f === mainVue) continue
       files[`/src/${f.name}`] = f.content
     }
-
     return { files, template: "vite-vue-ts" }
   }
 
-  // React: find the main component file
+  // React: template's /index.tsx already imports ./App and renders it.
+  // Override /App.tsx with the main component instead of creating a custom entry.
   const mainFile = generatedFiles.find(
     (f) => f.name.endsWith(".tsx") || f.name.endsWith(".jsx")
   ) ?? generatedFiles[0]
-  const mainName = mainFile ? mainFile.name : "App.tsx"
-  const ext = mainName.endsWith(".tsx") || mainName.endsWith(".ts") ? "tsx" : "jsx"
 
-  files[`/index.${ext}`] = `import App from "./${mainName}"
-import { createRoot } from "react-dom/client"
-
-createRoot(document.getElementById("root")!).render(<App />)
-`
+  if (mainFile) {
+    files["/App.tsx"] = mainFile.content
+  }
+  for (const f of generatedFiles) {
+    if (f === mainFile) continue
+    files[`/${f.name}`] = f.content
+  }
   return { files, template: "react-ts" }
 }
 
