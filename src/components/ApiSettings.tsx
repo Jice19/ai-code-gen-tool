@@ -57,6 +57,12 @@ export function ApiSettings({
       <summary className="text-xs font-medium text-zinc-500 uppercase tracking-wider cursor-pointer hover:text-zinc-400 transition-colors select-none">
         LLM Settings
       </summary>
+      <p className="mt-2 text-[10px] text-zinc-600 pl-1">
+        Your API key is stored in your browser&apos;s localStorage. Do not use
+        this tool on shared or public computers.
+        Set <code className="text-zinc-500">VITE_API_KEY</code> as an
+        environment variable to avoid storing it in the browser.
+      </p>
       <div className="mt-3 flex flex-col gap-3 pl-1">
         <select
           className="w-full bg-zinc-900 border border-zinc-700 rounded-lg p-2.5 text-sm text-zinc-100 focus:outline-none focus:border-zinc-500"

@@ -7,29 +7,36 @@ function App() {
   const [settings, setSettings] = useApiSettings()
   const [centerView, setCenterView] = useState<"code" | "preview">("code")
 
+  const resolveApiKey = useCallback((): string => {
+    if (settings.apiKey) return settings.apiKey
+    // Fallback to env var (Vite exposes VITE_ prefixed vars)
+    const envKey = (import.meta as Record<string, unknown>).env as Record<string, string>
+    return envKey?.VITE_API_KEY ?? ""
+  }, [settings.apiKey])
+
   const buildConfig = useCallback((): ProviderConfig => ({
     type: settings.provider,
-    apiKey: settings.apiKey,
+    apiKey: resolveApiKey(),
     model: settings.model,
     baseUrl: settings.baseUrl || undefined,
-  }), [settings])
+  }), [settings, resolveApiKey])
 
   const handleGenerate = useCallback(() => {
-    if (!settings.apiKey) {
+    if (!resolveApiKey()) {
       alert("Please configure your LLM API key in Settings first.")
       return
     }
     setCenterView("code")
     runGeneration(buildConfig())
-  }, [settings, buildConfig])
+  }, [resolveApiKey, buildConfig])
 
   const handleChatSend = useCallback((message: string) => {
-    if (!settings.apiKey) {
+    if (!resolveApiKey()) {
       alert("Please configure your LLM API key in Settings first.")
       return
     }
     runGeneration(buildConfig(), message)
-  }, [settings, buildConfig])
+  }, [resolveApiKey, buildConfig])
 
   return (
     <div className="min-h-screen bg-zinc-950 text-zinc-100 flex flex-col">
