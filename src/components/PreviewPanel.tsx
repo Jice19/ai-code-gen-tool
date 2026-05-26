@@ -82,7 +82,7 @@ function SandpackSelfHealing() {
 
   // Listen for Sandpack messages
   useEffect(() => {
-    const unlisten = listen((msg: Record<string, unknown> & { type?: string; action?: string; log?: Array<{ method: string; data: string[] }>; message?: string; title?: string; path?: string; line?: number; column?: number }) => {
+    const unlisten = listen((msg: any) => {
       // Collect compile errors
       if (msg.type === "action" && msg.action === "show-error") {
         const errMsg = msg.message ?? ""
@@ -277,11 +277,12 @@ export function PreviewPanel() {
               borderRadius: 0,
             }}
           >
-            {viewMode === "preview" ? (
+            <div style={{ display: viewMode === "preview" ? "flex" : "none", flex: 1 }}>
               <SandpackPreview showNavigator={false} showRefreshButton />
-            ) : (
+            </div>
+            <div style={{ display: viewMode === "code" ? "flex" : "none", flex: 1 }}>
               <SandpackCodeEditor showLineNumbers />
-            )}
+            </div>
           </SandpackLayout>
         </SandpackProvider>
       </div>
