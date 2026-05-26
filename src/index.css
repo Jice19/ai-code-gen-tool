@@ -12,3 +12,11 @@
   align-items: center !important;
   justify-content: center !important;
 }
+
+/* 确保 sandpack 内部全链路高度传递到 iframe */
+.sp-wrapper,
+.sp-stack,
+.sp-preview-container,
+.sp-preview {
+  height: 100% !important;
+}

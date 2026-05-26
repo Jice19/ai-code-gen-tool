@@ -6,7 +6,7 @@ import {
 } from "@codesandbox/sandpack-react"
 import { useCodeGenStore } from "../stores/codeGenStore"
 import { cn } from "../lib/utils"
-import { useState, useRef, useLayoutEffect } from "react"
+import { useState } from "react"
 
 function buildSandpackFiles(
   generatedFiles: { name: string; content: string }[],
@@ -61,18 +61,6 @@ createRoot(document.getElementById("root")!).render(<App />)
 export function PreviewPanel() {
   const { generatedFiles, framework } = useCodeGenStore()
   const [viewMode, setViewMode] = useState<"preview" | "code">("preview")
-  const contentRef = useRef<HTMLDivElement>(null)
-  const [height, setHeight] = useState(0)
-
-  useLayoutEffect(() => {
-    const el = contentRef.current
-    if (!el) return
-    const update = () => setHeight(el.clientHeight)
-    update()
-    const observer = new ResizeObserver(update)
-    observer.observe(el)
-    return () => observer.disconnect()
-  }, [])
 
   if (generatedFiles.length === 0) {
     return (
@@ -110,7 +98,7 @@ export function PreviewPanel() {
           Source
         </button>
       </div>
-      <div ref={contentRef} className="flex-1 min-h-0">
+      <div className="flex-1 min-h-0">
         <SandpackProvider
           template={template as "react-ts" | "vite-vue-ts"}
           files={files}
@@ -121,7 +109,7 @@ export function PreviewPanel() {
         >
           <SandpackLayout
             style={{
-              height: height > 0 ? `${height}px` : "100%",
+              height: "100%",
               border: "none",
               borderRadius: 0,
             }}
