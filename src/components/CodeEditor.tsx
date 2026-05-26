@@ -1,4 +1,4 @@
-import { useRef, useCallback } from "react"
+import { useRef, useCallback, useEffect } from "react"
 import Editor, { type OnMount } from "@monaco-editor/react"
 import type { editor } from "monaco-editor"
 import { useCodeGenStore } from "../stores/codeGenStore"
@@ -15,6 +15,16 @@ export function CodeEditor() {
     : streamingContent || "// Your generated code will appear here..."
 
   const language = activeFile?.language ?? storeLanguage
+
+  // Auto-scroll to bottom during streaming generation
+  useEffect(() => {
+    if (!isGenerating || !editorRef.current) return
+    const editor = editorRef.current
+    const model = editor.getModel()
+    if (!model) return
+    const lastLine = model.getLineCount()
+    editor.revealLine(lastLine)
+  }, [displayContent, isGenerating])
 
   const handleMount: OnMount = useCallback((editor) => {
     editorRef.current = editor

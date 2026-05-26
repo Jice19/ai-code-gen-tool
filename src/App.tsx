@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react"
+import { useState, useCallback, useEffect, useRef } from "react"
 import { InputPanel, ApiSettings, useApiSettings, CodeEditor, PreviewPanel, ChatPanel, ExportToolbar } from "./components"
 import { useCodeGenStore } from "./stores/codeGenStore"
 import { runGeneration } from "./agent"
@@ -8,6 +8,16 @@ function App() {
   const [settings, setSettings] = useApiSettings()
   const [centerView, setCenterView] = useState<"code" | "preview">("code")
   const mode = useCodeGenStore((s) => s.mode)
+  const isGenerating = useCodeGenStore((s) => s.isGenerating)
+  const wasGeneratingRef = useRef(isGenerating)
+
+  // Auto-switch to Preview when generation completes
+  useEffect(() => {
+    if (wasGeneratingRef.current && !isGenerating) {
+      setCenterView("preview")
+    }
+    wasGeneratingRef.current = isGenerating
+  }, [isGenerating])
 
   const resolveApiKey = useCallback((): string => {
     if (settings.apiKey) return settings.apiKey
