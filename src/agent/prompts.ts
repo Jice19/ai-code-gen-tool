@@ -1,8 +1,7 @@
-import type { Framework, Language, ChatMessage } from "../types"
+import type { Language, ChatMessage } from "../types"
 
 interface PromptOpts {
   prompt: string
-  framework: Framework
   language: Language
   previousCode?: string
 }

@@ -74,14 +74,14 @@ export async function generateCode(
   signal?: AbortSignal
 ): Promise<{ files: GeneratedFile[]; tokensUsed: number }> {
   const state = useCodeGenStore.getState()
-  const { prompt, framework, language, generatedFiles, chatMessages } = state
+  const { prompt, language, generatedFiles, chatMessages } = state
 
   const previousCode = generatedFiles.length > 0
     ? generatedFiles.map((f) => f.content).join("\n\n")
     : undefined
 
   const messages = buildMessages(
-    { prompt, framework, language, previousCode },
+    { prompt, language, previousCode },
     chatMessages.length > 0 ? chatMessages : undefined
   )
 

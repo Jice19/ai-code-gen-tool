@@ -1,9 +1,9 @@
 import { useState } from "react"
 import { useCodeGenStore } from "../stores/codeGenStore"
-import type { Framework, Language } from "../types"
+import type { Language } from "../types"
 
 export function InputPanel({ onGenerate }: { onGenerate: () => void }) {
-  const { prompt, framework, language, setPrompt, setFramework, setLanguage, isGenerating, cancelGeneration } =
+  const { prompt, language, setPrompt, setLanguage, isGenerating, cancelGeneration } =
     useCodeGenStore()
 
   const [charCount, setCharCount] = useState(prompt.length)
@@ -29,34 +29,19 @@ export function InputPanel({ onGenerate }: { onGenerate: () => void }) {
         <div className="text-right text-xs text-zinc-500 mt-1">{charCount} chars</div>
       </div>
 
-      <div className="flex gap-3">
-        <div className="flex-1">
-          <label className="text-xs font-medium text-zinc-400 uppercase tracking-wider">
-            Framework
-          </label>
-          <select
-            className="mt-2 w-full bg-zinc-900 border border-zinc-700 rounded-lg p-2.5 text-sm text-zinc-100 focus:outline-none focus:border-zinc-500 transition-colors"
-            value={framework}
-            onChange={(e) => setFramework(e.target.value as Framework)}
-            disabled={isGenerating}
-          >
-            <option value="react">React</option>
-          </select>
-        </div>
-        <div className="flex-1">
-          <label className="text-xs font-medium text-zinc-400 uppercase tracking-wider">
-            Language
-          </label>
-          <select
-            className="mt-2 w-full bg-zinc-900 border border-zinc-700 rounded-lg p-2.5 text-sm text-zinc-100 focus:outline-none focus:border-zinc-500 transition-colors"
-            value={language}
-            onChange={(e) => setLanguage(e.target.value as Language)}
-            disabled={isGenerating}
-          >
-            <option value="typescript">TypeScript</option>
-            <option value="javascript">JavaScript</option>
-          </select>
-        </div>
+      <div>
+        <label className="text-xs font-medium text-zinc-400 uppercase tracking-wider">
+          Language
+        </label>
+        <select
+          className="mt-2 w-full bg-zinc-900 border border-zinc-700 rounded-lg p-2.5 text-sm text-zinc-100 focus:outline-none focus:border-zinc-500 transition-colors"
+          value={language}
+          onChange={(e) => setLanguage(e.target.value as Language)}
+          disabled={isGenerating}
+        >
+          <option value="typescript">TypeScript</option>
+          <option value="javascript">JavaScript</option>
+        </select>
       </div>
 
       <button
