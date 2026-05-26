@@ -13,6 +13,37 @@ function stripMarkdownFences(content: string): string {
   return cleaned.trim()
 }
 
+// Extract code blocks from markdown when LLM ignores "no markdown" instructions
+function extractMarkdownCodeBlocks(content: string): { filename: string; content: string; language: string }[] {
+  const blocks: { filename: string; content: string; language: string }[] = []
+  // Match ```lang\n...\n``` with optional filename hints from preceding headings
+  const codeBlockRe = /```(\w*)\s*\n([\s\S]*?)```/g
+  let match: RegExpExecArray | null
+
+  while ((match = codeBlockRe.exec(content)) !== null) {
+    const lang = match[1] || ""
+    const code = match[2].trim()
+    if (!code) continue
+
+    // Try to extract filename from a markdown heading before this block
+    const beforeBlock = content.slice(0, match.index)
+    const headingMatch = beforeBlock.match(/###?\s*`?([\w./-]+\.\w+)`?[\s\n]*$/)
+
+    const ext = lang || ""
+    const filename = headingMatch?.[1] || `Component.${ext}`
+
+    const langMap: Record<string, string> = {
+      tsx: "typescript", ts: "typescript", jsx: "javascript", js: "javascript",
+      vue: "html", css: "css",
+    }
+    const fileLanguage = langMap[lang] ?? "text"
+
+    blocks.push({ filename, content: code, language: fileLanguage })
+  }
+
+  return blocks
+}
+
 function parseGeneratedFiles(
   fullContent: string,
   language: string,
@@ -28,7 +59,17 @@ function parseGeneratedFiles(
   const parts = cleaned.split(FILE_DELIMITER)
 
   if (parts.length === 1) {
-    // Single file — no delimiter found
+    // No delimiter found — try extracting fenced code blocks as fallback
+    const codeBlocks = extractMarkdownCodeBlocks(fullContent)
+    if (codeBlocks.length > 0) {
+      return codeBlocks.map((b) => ({
+        name: b.filename,
+        content: b.content,
+        language: b.language,
+      }))
+    }
+
+    // Single file — no delimiter and no code blocks
     const nameMatch =
       cleaned.match(/function\s+(\w+)/) ??
       cleaned.match(/const\s+(\w+)/) ??

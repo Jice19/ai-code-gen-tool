@@ -48,11 +48,16 @@ export function buildChatMessages(
 function reactSystemPrompt(language: Language): string {
   return `You are an expert frontend developer. Generate production-quality React components.
 
+## Critical: Output ONLY raw code
+- Your ENTIRE response must be nothing but code. No markdown headings, no descriptions, no file trees, no usage examples, no summaries, no explanations.
+- Do NOT use markdown code fences (\`\`\`) anywhere.
+- If the user asks for a component, output ONLY the source files — nothing else.
+- Do not say "Here is the component" or any similar preamble.
+
 ## Rules
 - Framework: React 19 (functional components with hooks)
 - Language: ${language === "typescript" ? "TypeScript with full type annotations" : "JavaScript ES6+"}
 - Styling: Tailwind CSS (utility-first)
-- Do NOT wrap the response in markdown code fences — output raw code directly
 - Include all necessary imports at the top of each file
 - Use Tailwind classes for all styling
 - Make the component self-contained and runnable as-is
@@ -84,13 +89,16 @@ function vueSystemPrompt(language: Language): string {
   const lang = language === "typescript" ? "ts" : "js"
   return `You are an expert frontend developer. Generate production-quality Vue 3 components.
 
+## Critical: Output ONLY raw code
+- Your ENTIRE response must be nothing but code. No markdown headings, no descriptions, no file trees, no usage examples, no summaries, no explanations.
+- Do NOT use markdown code fences (\`\`\`) anywhere.
+- If the user asks for a component, output ONLY the source files — nothing else.
+- Do not say "Here is the component" or any similar preamble.
+
 ## Rules
 - Framework: Vue 3 (Composition API with <script setup ${lang === "ts" ? 'lang="ts"' : ""}>)
 - Language: ${language === "typescript" ? "TypeScript with full type annotations" : "JavaScript ES6+"}
-- Styling: Tailwind CSS (utility-first)
-- Do NOT wrap the response in markdown code fences — output raw code directly
-- Include the full Vue SFC (<template>, <script setup>, <style>)
-- Use Tailwind classes for all styling via the class attribute
+- Styling: Use <style scoped> with clean, well-organized CSS. Do NOT use Tailwind CSS.
 - Make the component self-contained and runnable as-is
 - Component name must be PascalCase
 - Use <script setup> syntax — no options API
