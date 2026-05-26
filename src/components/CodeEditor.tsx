@@ -5,7 +5,7 @@ import { useCodeGenStore } from "../stores/codeGenStore"
 
 export function CodeEditor() {
   const editorRef = useRef<editor.IStandaloneCodeEditor | null>(null)
-  const { generatedFiles, activeFileIndex, streamingContent, isGenerating } =
+  const { generatedFiles, activeFileIndex, streamingContent, isGenerating, language: storeLanguage } =
     useCodeGenStore()
 
   const activeFile = generatedFiles[activeFileIndex]
@@ -13,7 +13,7 @@ export function CodeEditor() {
     ? activeFile.content
     : streamingContent || "// Your generated code will appear here..."
 
-  const language = activeFile?.language ?? "typescript"
+  const language = activeFile?.language ?? storeLanguage
 
   const handleMount: OnMount = useCallback((editor) => {
     editorRef.current = editor
