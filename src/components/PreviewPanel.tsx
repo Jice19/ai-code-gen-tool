@@ -55,6 +55,9 @@ function isNetworkError(message: string): boolean {
   )
 }
 
+const AI_FIX_GRACE_MS = 3_000   // errors within this window → AI-generated, fix immediately
+const USER_FIX_DELAY_MS = 10_000 // user edits → wait 10s after last keystroke
+
 function SandpackSelfHealing() {
   const { listen } = useSandpack()
   const store = useCodeGenStore()
@@ -63,19 +66,23 @@ function SandpackSelfHealing() {
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const isFixingRef = useRef(false)
   const prevFilesRef = useRef(store.generatedFiles)
+  const lastAiUpdateRef = useRef(Date.now())
   const [isFixing, setIsFixing] = useState(false)
   const [fixStatus, setFixStatus] = useState("")
+  const [isWaitingForUser, setIsWaitingForUser] = useState(false)
 
   // Reset state when a new user generation comes in (files reference changes
   // while we're not in a self-healing cycle)
   useEffect(() => {
     if (prevFilesRef.current !== store.generatedFiles) {
       prevFilesRef.current = store.generatedFiles
+      lastAiUpdateRef.current = Date.now()
       if (!isFixingRef.current && store.generatedFiles.length > 0) {
         store.resetRetries()
         errorsRef.current = []
         setIsFixing(false)
         setFixStatus("")
+        setIsWaitingForUser(false)
       }
     }
   }, [store.generatedFiles])
@@ -120,17 +127,37 @@ function SandpackSelfHealing() {
       // When compilation is done, debounce and check for errors
       if (msg.type === "done") {
         if (debounceRef.current) clearTimeout(debounceRef.current)
-        debounceRef.current = setTimeout(() => {
-          const errors = errorsRef.current
+
+        const errors = errorsRef.current
+        if (errors.length === 0) {
+          setIsWaitingForUser(false)
+          return
+        }
+
+        const elapsed = Date.now() - lastAiUpdateRef.current
+        const isAiGenerated = elapsed < AI_FIX_GRACE_MS
+
+        if (isAiGenerated) {
+          // AI-generated errors → fix immediately
           const currentState = useCodeGenStore.getState()
-          if (
-            errors.length > 0 &&
-            !isFixingRef.current &&
-            currentState.retryCount < currentState.maxRetries
-          ) {
+          if (!isFixingRef.current && currentState.retryCount < currentState.maxRetries) {
             triggerFix(errors)
           }
-        }, 500)
+        } else {
+          // User-edited errors → wait 10s after last edit
+          setIsWaitingForUser(true)
+          debounceRef.current = setTimeout(() => {
+            const currentState = useCodeGenStore.getState()
+            if (
+              errorsRef.current.length > 0 &&
+              !isFixingRef.current &&
+              currentState.retryCount < currentState.maxRetries
+            ) {
+              setIsWaitingForUser(false)
+              triggerFix(errorsRef.current)
+            }
+          }, USER_FIX_DELAY_MS)
+        }
       }
     })
 
@@ -201,21 +228,27 @@ function SandpackSelfHealing() {
     }
   }, [])
 
-  if (!isFixing && !fixStatus) return null
+  if (!isFixing && !fixStatus && !isWaitingForUser) return null
 
   return (
     <div
       className={cn(
         "px-4 py-2 text-xs flex items-center gap-2 border-b border-zinc-800 shrink-0",
-        fixStatus.includes("failed") || fixStatus.includes("Max retries")
-          ? "text-red-400 bg-red-950/30"
-          : "text-amber-400 bg-amber-950/30"
+        isWaitingForUser
+          ? "text-blue-400 bg-blue-950/30"
+          : fixStatus.includes("failed") || fixStatus.includes("Max retries")
+            ? "text-red-400 bg-red-950/30"
+            : "text-amber-400 bg-amber-950/30"
       )}
     >
-      <span className="animate-pulse">
-        {fixStatus.includes("failed") || fixStatus.includes("Max retries") ? "✕" : "⚠"}
+      <span className={cn(!isWaitingForUser && "animate-pulse")}>
+        {isWaitingForUser ? "◎" : fixStatus.includes("failed") || fixStatus.includes("Max retries") ? "✕" : "⚠"}
       </span>
-      <span>{fixStatus}</span>
+      <span>
+        {isWaitingForUser
+          ? `Detected ${errorsRef.current.length} error${errorsRef.current.length > 1 ? "s" : ""} in edited code. Auto-fix in a few seconds...`
+          : fixStatus}
+      </span>
     </div>
   )
 }
