@@ -1,4 +1,4 @@
-import type { Language, Framework, ChatMessage } from "../types"
+import type { Language, Framework, ChatMessage, CapturedError, GeneratedFile } from "../types"
 
 interface PromptOpts {
   prompt: string
@@ -67,6 +67,13 @@ function reactSystemPrompt(language: Language): string {
 - Use only React built-in APIs and native browser APIs (fetch, crypto.randomUUID(), Date, etc.)
 - For unique IDs use crypto.randomUUID() or Math.random().toString(36)
 
+## Defensive Coding
+- Every useState MUST have an initial value — never call useState() with no arguments
+- All component props that receive arrays/objects MUST have default values (e.g. items = [])
+- Before accessing .length, .map(), .filter(), or any array method, verify the value is not undefined
+- Render an explicit "empty state" (e.g. "No items found") when a list is empty
+- If a prop could be undefined, use optional chaining (?.) and nullish coalescing (??)
+
 ## Multi-file output format
 When the component needs multiple files (e.g. separate hooks, types, or sub-components),
 separate each file with the exact delimiter:
@@ -105,6 +112,13 @@ function vueSystemPrompt(language: Language): string {
 - Do NOT import external npm packages (no uuid, axios, lodash, moment, etc.)
 - Use only Vue built-in APIs and native browser APIs (fetch, crypto.randomUUID(), Date, etc.)
 - For unique IDs use crypto.randomUUID() or Math.random().toString(36)
+
+## Defensive Coding
+- Every useState MUST have an initial value — never call useState() with no arguments
+- All component props that receive arrays/objects MUST have default values (e.g. items = [])
+- Before accessing .length, .map(), .filter(), or any array method, verify the value is not undefined
+- Render an explicit "empty state" (e.g. "No items found") when a list is empty
+- If a prop could be undefined, use optional chaining (?.) and nullish coalescing (??)
 
 ## Multi-file output format
 When the component needs multiple files (e.g. separate composables, sub-components, or types),
@@ -168,4 +182,44 @@ export function buildMessages(
   msgs.push({ role: "user", content: buildUserPrompt(opts) })
 
   return msgs
+}
+
+// --- Self-Healing Fix ---
+
+export function buildFixPrompt(
+  errors: CapturedError[],
+  files: GeneratedFile[],
+  previousFixFailed?: boolean
+): Array<{ role: "system" | "user"; content: string }> {
+  const errorList = errors
+    .map(
+      (e) =>
+        `- ${e.path}:${e.line}:${e.column} — [${e.source}] ${e.title}: ${e.message}`
+    )
+    .join("\n")
+
+  const fileList = files
+    .map((f) => `### ${f.name}\n\`\`\`\n${f.content}\n\`\`\``)
+    .join("\n\n")
+
+  let userMessage = `The following errors occurred in the generated code. Fix ALL of them and output the corrected files using the same "// file:" delimiter format.
+
+## Errors
+${errorList}
+
+## Current Files
+${fileList}`
+
+  if (previousFixFailed) {
+    userMessage += `\n\n**IMPORTANT:** Your previous fix did NOT resolve these issues. Please take a different approach this time.`
+  }
+
+  return [
+    {
+      role: "system",
+      content:
+        "You are a code fix expert. Output ONLY the corrected files using the exact same format (// file: path/to/File.ext delimiter). Do NOT add explanations, markdown headings, or code fences.",
+    },
+    { role: "user", content: userMessage },
+  ]
 }

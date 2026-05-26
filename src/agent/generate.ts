@@ -1,7 +1,12 @@
-import { streamGenerate, buildMessages, buildChatMessages } from "./index"
+import { streamGenerate, buildMessages, buildChatMessages, buildFixPrompt } from "./index"
 import type { ProviderConfig } from "./index"
 import { useCodeGenStore } from "../stores/codeGenStore"
-import type { GeneratedFile, ChatMessage } from "../types"
+import type { GeneratedFile, ChatMessage, CapturedError } from "../types"
+
+let lastProviderConfig: ProviderConfig | null = null
+export function getLastConfig(): ProviderConfig | null {
+  return lastProviderConfig
+}
 
 const FILE_DELIMITER = /^\/\/ file: (.+)$/m
 
@@ -201,6 +206,7 @@ export async function runGeneration(
   config: ProviderConfig,
   userMessage?: string
 ) {
+  lastProviderConfig = config
   const store = useCodeGenStore.getState()
   const { mode } = store
 
@@ -268,4 +274,41 @@ export async function runGeneration(
     store.setIsGenerating(false)
     store._setAbortController(null)
   }
+}
+
+export async function runSelfHealingFix(
+  config: ProviderConfig,
+  errors: CapturedError[],
+  currentFiles: GeneratedFile[]
+): Promise<{ files: GeneratedFile[]; tokensUsed: number }> {
+  const store = useCodeGenStore.getState()
+  const previousFixFailed =
+    store.fixHistory.length > 0 &&
+    store.fixHistory[store.fixHistory.length - 1].afterFiles.length > 0
+
+  const messages = buildFixPrompt(errors, currentFiles, previousFixFailed)
+
+  let fullContent = ""
+  let tokensUsed = 0
+
+  for await (const chunk of streamGenerate(config, messages)) {
+    fullContent += chunk.content
+    tokensUsed += chunk.tokens
+  }
+
+  const files = parseGeneratedFiles(
+    fullContent,
+    store.language,
+    store.framework
+  )
+
+  const assistantMsg: ChatMessage = {
+    id: Date.now().toString(),
+    role: "assistant",
+    content: `[Self-healing] Fixed ${errors.length} error${errors.length > 1 ? "s" : ""}. ${tokensUsed} tokens used.`,
+    timestamp: Date.now(),
+  }
+  store.addChatMessage(assistantMsg)
+
+  return { files, tokensUsed }
 }

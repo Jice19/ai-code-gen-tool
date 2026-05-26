@@ -1,5 +1,5 @@
 import { create } from "zustand"
-import type { ChatMessage, Framework, Language, Mode, GeneratedFile } from "../types"
+import type { ChatMessage, Framework, Language, Mode, GeneratedFile, CapturedError, FixAttempt } from "../types"
 
 interface CodeGenState {
   // Input
@@ -27,6 +27,16 @@ interface CodeGenState {
   cancelGeneration: () => void
   _abortController: AbortController | null
   _setAbortController: (ctrl: AbortController | null) => void
+
+  // Self-healing
+  retryCount: number
+  maxRetries: number
+  capturedErrors: CapturedError[]
+  fixHistory: FixAttempt[]
+  incrementRetry: () => void
+  resetRetries: () => void
+  setCapturedErrors: (errors: CapturedError[]) => void
+  addFixAttempt: (attempt: FixAttempt) => void
 
   // Chat
   chatMessages: ChatMessage[]
@@ -69,6 +79,17 @@ export const useCodeGenStore = create<CodeGenState>((set, get) => ({
   },
   _abortController: null,
   _setAbortController: (_abortController) => set({ _abortController }),
+
+  // Self-healing defaults
+  retryCount: 0,
+  maxRetries: 3,
+  capturedErrors: [],
+  fixHistory: [],
+  incrementRetry: () => set((s) => ({ retryCount: s.retryCount + 1 })),
+  resetRetries: () => set({ retryCount: 0, capturedErrors: [], fixHistory: [] }),
+  setCapturedErrors: (capturedErrors) => set({ capturedErrors }),
+  addFixAttempt: (attempt) =>
+    set((s) => ({ fixHistory: [...s.fixHistory, attempt] })),
 
   // Chat defaults
   chatMessages: [],

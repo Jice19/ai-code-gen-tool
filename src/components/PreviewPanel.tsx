@@ -3,10 +3,13 @@ import {
   SandpackLayout,
   SandpackPreview,
   SandpackCodeEditor,
+  useSandpack,
 } from "@codesandbox/sandpack-react"
 import { useCodeGenStore } from "../stores/codeGenStore"
 import { cn } from "../lib/utils"
-import { useState } from "react"
+import { useState, useEffect, useRef, useCallback } from "react"
+import { runSelfHealingFix, getLastConfig } from "../agent"
+import type { CapturedError } from "../types"
 
 function buildSandpackFiles(
   generatedFiles: { name: string; content: string }[],
@@ -18,8 +21,6 @@ function buildSandpackFiles(
     "body { margin: 0; font-family: system-ui, sans-serif; } * { box-sizing: border-box; }"
 
   if (framework === "vue") {
-    // vite-vue-ts template's /src/main.ts imports ./App.vue and mounts it.
-    // Put all files under /src/ — no root-level duplication.
     const mainVue = generatedFiles.find((f) => f.name.endsWith(".vue"))
     if (mainVue) {
       files["/src/App.vue"] = mainVue.content
@@ -31,8 +32,6 @@ function buildSandpackFiles(
     return { files, template: "vite-vue-ts" }
   }
 
-  // React: template's /index.tsx already imports ./App and renders it.
-  // Override /App.tsx with the main component instead of creating a custom entry.
   const mainFile = generatedFiles.find(
     (f) => f.name.endsWith(".tsx") || f.name.endsWith(".jsx")
   ) ?? generatedFiles[0]
@@ -45,6 +44,180 @@ function buildSandpackFiles(
     files[`/${f.name}`] = f.content
   }
   return { files, template: "react-ts" }
+}
+
+function isNetworkError(message: string): boolean {
+  const lower = message.toLowerCase()
+  return (
+    lower.includes("network error") ||
+    lower.includes("failed to fetch") ||
+    lower.includes("timeout")
+  )
+}
+
+function SandpackSelfHealing() {
+  const { listen } = useSandpack()
+  const store = useCodeGenStore()
+
+  const errorsRef = useRef<CapturedError[]>([])
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const isFixingRef = useRef(false)
+  const prevFilesRef = useRef(store.generatedFiles)
+  const [isFixing, setIsFixing] = useState(false)
+  const [fixStatus, setFixStatus] = useState("")
+
+  // Reset state when a new user generation comes in (files reference changes
+  // while we're not in a self-healing cycle)
+  useEffect(() => {
+    if (prevFilesRef.current !== store.generatedFiles) {
+      prevFilesRef.current = store.generatedFiles
+      if (!isFixingRef.current && store.generatedFiles.length > 0) {
+        store.resetRetries()
+        errorsRef.current = []
+        setIsFixing(false)
+        setFixStatus("")
+      }
+    }
+  }, [store.generatedFiles])
+
+  // Listen for Sandpack messages
+  useEffect(() => {
+    const unlisten = listen((msg: Record<string, unknown> & { type?: string; action?: string; log?: Array<{ method: string; data: string[] }>; message?: string; title?: string; path?: string; line?: number; column?: number }) => {
+      // Collect compile errors
+      if (msg.type === "action" && msg.action === "show-error") {
+        const errMsg = msg.message ?? ""
+        if (isNetworkError(errMsg)) return
+
+        errorsRef.current.push({
+          title: (msg.title as string) ?? "Compile Error",
+          path: (msg.path as string) ?? "/App.tsx",
+          message: errMsg,
+          line: (msg.line as number) ?? 0,
+          column: (msg.column as number) ?? 0,
+          source: "compile",
+        })
+      }
+
+      // Collect runtime console errors
+      if (msg.type === "console" && Array.isArray(msg.log)) {
+        for (const entry of msg.log) {
+          if (entry.method !== "error") continue
+          for (const data of entry.data ?? []) {
+            const errMsg = typeof data === "string" ? data : String(data ?? "")
+            if (isNetworkError(errMsg)) continue
+            errorsRef.current.push({
+              title: "Runtime Error",
+              path: "/App.tsx",
+              message: errMsg,
+              line: 0,
+              column: 0,
+              source: "runtime",
+            })
+          }
+        }
+      }
+
+      // When compilation is done, debounce and check for errors
+      if (msg.type === "done") {
+        if (debounceRef.current) clearTimeout(debounceRef.current)
+        debounceRef.current = setTimeout(() => {
+          const errors = errorsRef.current
+          const currentState = useCodeGenStore.getState()
+          if (
+            errors.length > 0 &&
+            !isFixingRef.current &&
+            currentState.retryCount < currentState.maxRetries
+          ) {
+            triggerFix(errors)
+          }
+        }, 500)
+      }
+    })
+
+    return () => {
+      unlisten()
+      if (debounceRef.current) clearTimeout(debounceRef.current)
+    }
+  }, [])
+
+  const triggerFix = useCallback(async (errors: CapturedError[]) => {
+    const config = getLastConfig()
+    if (!config) return
+
+    const currentState = useCodeGenStore.getState()
+    if (currentState.retryCount >= currentState.maxRetries) return
+
+    isFixingRef.current = true
+    setIsFixing(true)
+
+    const attemptNum = currentState.retryCount + 1
+    setFixStatus(
+      `Fixing ${errors.length} error${errors.length > 1 ? "s" : ""}... Attempt ${attemptNum}/${currentState.maxRetries}`
+    )
+
+    currentState.setCapturedErrors(errors)
+    currentState.incrementRetry()
+
+    const beforeFiles = [...currentState.generatedFiles]
+
+    try {
+      const result = await runSelfHealingFix(config, errors, currentState.generatedFiles)
+
+      currentState.addFixAttempt({
+        errors,
+        beforeFiles,
+        afterFiles: result.files,
+        timestamp: Date.now(),
+      })
+
+      currentState.setGeneratedFiles(result.files)
+      currentState.setTokensUsed(currentState.tokensUsed + result.tokensUsed)
+
+      // Clear errors for the next compilation cycle
+      errorsRef.current = []
+      setFixStatus("")
+    } catch (err) {
+      const isAbort = err instanceof DOMException && err.name === "AbortError"
+      if (isAbort) {
+        currentState.resetRetries()
+        errorsRef.current = []
+        setFixStatus("")
+      } else {
+        setFixStatus(
+          `Fix attempt ${attemptNum} failed. ${currentState.retryCount >= currentState.maxRetries ? "Max retries reached." : "Retrying..."}`
+        )
+      }
+    } finally {
+      isFixingRef.current = false
+      setIsFixing(false)
+
+      // Check if max retries exhausted
+      const latestState = useCodeGenStore.getState()
+      if (latestState.retryCount >= latestState.maxRetries && errorsRef.current.length > 0) {
+        setFixStatus(
+          `Auto-fix failed after ${latestState.maxRetries} attempts. Last code preserved.`
+        )
+      }
+    }
+  }, [])
+
+  if (!isFixing && !fixStatus) return null
+
+  return (
+    <div
+      className={cn(
+        "px-4 py-2 text-xs flex items-center gap-2 border-b border-zinc-800 shrink-0",
+        fixStatus.includes("failed") || fixStatus.includes("Max retries")
+          ? "text-red-400 bg-red-950/30"
+          : "text-amber-400 bg-amber-950/30"
+      )}
+    >
+      <span className="animate-pulse">
+        {fixStatus.includes("failed") || fixStatus.includes("Max retries") ? "✕" : "⚠"}
+      </span>
+      <span>{fixStatus}</span>
+    </div>
+  )
 }
 
 export function PreviewPanel() {
@@ -96,6 +269,7 @@ export function PreviewPanel() {
             externalResources: ["https://cdn.tailwindcss.com"],
           }}
         >
+          <SandpackSelfHealing />
           <SandpackLayout
             style={{
               height: "100%",
