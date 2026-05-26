@@ -64,7 +64,7 @@ export async function runGeneration(
   }
 
   store.setIsGenerating(true)
-  store.setGeneratedFiles([])
+  store.clearGeneration()
 
   try {
     const result = await generateCode(config, (chunk) => {
