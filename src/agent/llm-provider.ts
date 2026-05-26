@@ -109,15 +109,21 @@ export async function* streamGenerate(
     if (done) break
 
     buffer += decoder.decode(value, { stream: true })
-    const lines = buffer.split("\n")
-    buffer = lines.pop() ?? ""
 
-    for (const line of lines) {
-      const trimmed = line.trim()
-      if (!trimmed || !trimmed.startsWith("data: ")) continue
+    // Split by SSE event boundaries (double newline)
+    const events = buffer.split("\n\n")
+    buffer = events.pop() ?? ""
 
-      const data = trimmed.slice(6)
-      if (data === "[DONE]") continue
+    for (const event of events) {
+      // Find the data: line within this event
+      const dataLine = event
+        .split("\n")
+        .find((l) => l.trim().startsWith("data: "))
+
+      if (!dataLine) continue
+
+      const data = dataLine.trim().slice(6)
+      if (!data || data === "[DONE]") continue
 
       try {
         const parsed = JSON.parse(data)
