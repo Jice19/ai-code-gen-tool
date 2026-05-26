@@ -8,8 +8,58 @@ import { useCodeGenStore } from "../stores/codeGenStore"
 import { cn } from "../lib/utils"
 import { useState, useRef, useLayoutEffect } from "react"
 
+function buildSandpackFiles(
+  generatedFiles: { name: string; content: string }[],
+  framework: string
+): { files: Record<string, string>; template: string } {
+  const files: Record<string, string> = {}
+
+  // Add all generated files at root level
+  for (const f of generatedFiles) {
+    files[`/${f.name}`] = f.content
+  }
+
+  files["/styles.css"] =
+    "body { margin: 0; font-family: system-ui, sans-serif; } * { box-sizing: border-box; }"
+
+  if (framework === "vue") {
+    // vite-vue-ts template expects files under /src/
+    // The template's /src/main.ts already imports ./App.vue and mounts it
+    // We override /src/App.vue with the main generated component
+    const mainVue = generatedFiles.find((f) => f.name.endsWith(".vue"))
+
+    if (mainVue) {
+      // Place main component at the template entry point path
+      files["/src/App.vue"] = mainVue.content
+    }
+
+    // Place additional generated files under /src/ for correct import resolution
+    for (const f of generatedFiles) {
+      // Skip the main file — already placed as App.vue
+      if (f === mainVue) continue
+      files[`/src/${f.name}`] = f.content
+    }
+
+    return { files, template: "vite-vue-ts" }
+  }
+
+  // React: find the main component file
+  const mainFile = generatedFiles.find(
+    (f) => f.name.endsWith(".tsx") || f.name.endsWith(".jsx")
+  ) ?? generatedFiles[0]
+  const mainName = mainFile ? mainFile.name : "App.tsx"
+  const ext = mainName.endsWith(".tsx") || mainName.endsWith(".ts") ? "tsx" : "jsx"
+
+  files[`/index.${ext}`] = `import App from "./${mainName}"
+import { createRoot } from "react-dom/client"
+
+createRoot(document.getElementById("root")!).render(<App />)
+`
+  return { files, template: "react-ts" }
+}
+
 export function PreviewPanel() {
-  const { generatedFiles, activeFileIndex, framework } = useCodeGenStore()
+  const { generatedFiles, framework } = useCodeGenStore()
   const [viewMode, setViewMode] = useState<"preview" | "code">("preview")
   const contentRef = useRef<HTMLDivElement>(null)
   const [height, setHeight] = useState(0)
@@ -32,59 +82,7 @@ export function PreviewPanel() {
     )
   }
 
-  const activeFile = generatedFiles[activeFileIndex] ?? generatedFiles[0]
-  const isVue = framework === "vue"
-
-  let files: Record<string, string>
-  let template: string
-
-  if (isVue) {
-    const content = activeFile.content
-    const hasTemplate = content.includes("<template>")
-    const hasScript = content.includes("<script")
-    const hasStyle = content.includes("<style")
-
-    // Ensure the content is a valid Vue SFC
-    const wrappedContent =
-      hasTemplate || hasScript || hasStyle
-        ? content
-        : `<script setup lang="ts">
-${content}
-</script>
-
-<template>
-  <div class="p-4">
-    <h1 class="text-2xl font-bold">Vue Component</h1>
-  </div>
-</template>`
-
-    files = {
-      "/App.vue": wrappedContent,
-      "/styles.css":
-        "body { margin: 0; font-family: system-ui, sans-serif; } * { box-sizing: border-box; }",
-      "/index.ts": `import { createApp } from "vue"
-import App from "./App.vue"
-
-createApp(App).mount("#app")
-`,
-    }
-    template = "vue-ts"
-  } else {
-    const isTsx = activeFile.name.endsWith(".tsx") || activeFile.name.endsWith(".ts")
-    const ext = isTsx ? "tsx" : "jsx"
-
-    files = {
-      "/App.tsx": activeFile.content,
-      "/styles.css":
-        "body { margin: 0; font-family: system-ui, sans-serif; } * { box-sizing: border-box; }",
-    }
-    files[`/index.${ext}`] = `import App from "./App"
-import { createRoot } from "react-dom/client"
-
-createRoot(document.getElementById("root")!).render(<App />)
-`
-    template = "react-ts"
-  }
+  const { files, template } = buildSandpackFiles(generatedFiles, framework)
 
   return (
     <div className="flex flex-col h-full min-h-0">
@@ -114,7 +112,7 @@ createRoot(document.getElementById("root")!).render(<App />)
       </div>
       <div ref={contentRef} className="flex-1 min-h-0">
         <SandpackProvider
-          template={template as "react-ts" | "vue-ts"}
+          template={template as "react-ts" | "vite-vue-ts"}
           files={files}
           theme="dark"
           options={{

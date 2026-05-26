@@ -5,6 +5,14 @@ import type { GeneratedFile, ChatMessage } from "../types"
 
 const FILE_DELIMITER = /^\/\/ file: (.+)$/m
 
+function stripMarkdownFences(content: string): string {
+  // Remove leading code fence (e.g. ```tsx, ```vue, ```typescript)
+  let cleaned = content.replace(/^```[\w-]*\s*\n?/, "")
+  // Remove trailing code fence
+  cleaned = cleaned.replace(/\n?```\s*$/, "")
+  return cleaned.trim()
+}
+
 function parseGeneratedFiles(
   fullContent: string,
   language: string,
@@ -13,22 +21,25 @@ function parseGeneratedFiles(
   const ext =
     framework === "vue" ? "vue" : language === "typescript" ? "tsx" : "jsx"
 
+  // Strip markdown code fences that some LLMs output despite instructions
+  const cleaned = stripMarkdownFences(fullContent)
+
   // Split by the "// file:" delimiter
-  const parts = fullContent.split(FILE_DELIMITER)
+  const parts = cleaned.split(FILE_DELIMITER)
 
   if (parts.length === 1) {
     // Single file — no delimiter found
     const nameMatch =
-      fullContent.match(/function\s+(\w+)/) ??
-      fullContent.match(/const\s+(\w+)/) ??
-      fullContent.match(/defineComponent\(\s*["'](\w+)["']/) ??
-      fullContent.match(/export\s+default\s*\{/)
+      cleaned.match(/function\s+(\w+)/) ??
+      cleaned.match(/const\s+(\w+)/) ??
+      cleaned.match(/defineComponent\(\s*["'](\w+)["']/) ??
+      cleaned.match(/export\s+default\s*\{/)
     const componentName = nameMatch?.[1] ?? "GeneratedComponent"
 
     return [
       {
         name: `${componentName}.${ext}`,
-        content: fullContent.trim(),
+        content: cleaned,
         language: language === "typescript" ? "typescript" : "javascript",
       },
     ]
@@ -67,7 +78,7 @@ function parseGeneratedFiles(
     : [
         {
           name: `GeneratedComponent.${ext}`,
-          content: fullContent.trim(),
+          content: cleaned,
           language: framework === "vue" ? "html" : language === "typescript" ? "typescript" : "javascript",
         },
       ]

@@ -1,1 +1,14 @@
 @import "tailwindcss";
+
+/* Sandpack loading overlay — fill layout container */
+.sp-layout {
+  position: relative !important;
+}
+
+.sp-overlay {
+  position: absolute !important;
+  inset: 0 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}

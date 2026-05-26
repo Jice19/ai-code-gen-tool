@@ -58,6 +58,9 @@ function reactSystemPrompt(language: Language): string {
 - Make the component self-contained and runnable as-is
 - Component name must be PascalCase
 - Export the component as default
+- Do NOT import external npm packages (no uuid, axios, lodash, moment, etc.)
+- Use only React built-in APIs and native browser APIs (fetch, crypto.randomUUID(), Date, etc.)
+- For unique IDs use crypto.randomUUID() or Math.random().toString(36)
 
 ## Multi-file output format
 When the component needs multiple files (e.g. separate hooks, types, or sub-components),
@@ -91,6 +94,9 @@ function vueSystemPrompt(language: Language): string {
 - Make the component self-contained and runnable as-is
 - Component name must be PascalCase
 - Use <script setup> syntax — no options API
+- Do NOT import external npm packages (no uuid, axios, lodash, moment, etc.)
+- Use only Vue built-in APIs and native browser APIs (fetch, crypto.randomUUID(), Date, etc.)
+- For unique IDs use crypto.randomUUID() or Math.random().toString(36)
 
 ## Multi-file output format
 When the component needs multiple files (e.g. separate composables, sub-components, or types),
