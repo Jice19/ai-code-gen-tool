@@ -3,6 +3,71 @@ import type { ProviderConfig } from "./index"
 import { useCodeGenStore } from "../stores/codeGenStore"
 import type { GeneratedFile, ChatMessage } from "../types"
 
+const FILE_DELIMITER = /^\/\/ file: (.+)$/m
+
+function parseGeneratedFiles(
+  fullContent: string,
+  language: string
+): GeneratedFile[] {
+  const ext = language === "typescript" ? "tsx" : "jsx"
+
+  // Split by the "// file:" delimiter
+  const parts = fullContent.split(FILE_DELIMITER)
+
+  if (parts.length === 1) {
+    // Single file — no delimiter found
+    const nameMatch =
+      fullContent.match(/function\s+(\w+)/) ??
+      fullContent.match(/const\s+(\w+)/)
+    const componentName = nameMatch?.[1] ?? "GeneratedComponent"
+
+    return [
+      {
+        name: `${componentName}.${ext}`,
+        content: fullContent.trim(),
+        language: language === "typescript" ? "typescript" : "javascript",
+      },
+    ]
+  }
+
+  // Multi-file: parts[0] is empty or discarded content before first delimiter,
+  // then pairs of [filename, content] follow
+  const files: GeneratedFile[] = []
+  // Skip the first element (content before any delimiter)
+  for (let i = 1; i < parts.length; i += 2) {
+    const rawName = parts[i]?.trim()
+    const content = parts[i + 1]?.trim()
+    if (!rawName || !content) continue
+
+    // Determine language from file extension
+    const fileExt = rawName.split(".").pop() ?? ext
+    const langMap: Record<string, string> = {
+      tsx: "typescript",
+      ts: "typescript",
+      jsx: "javascript",
+      js: "javascript",
+      css: "css",
+    }
+    const fileLanguage = langMap[fileExt] ?? "text"
+
+    files.push({
+      name: rawName,
+      content,
+      language: fileLanguage,
+    })
+  }
+
+  return files.length > 0
+    ? files
+    : [
+        {
+          name: `GeneratedComponent.${ext}`,
+          content: fullContent.trim(),
+          language: language === "typescript" ? "typescript" : "javascript",
+        },
+      ]
+}
+
 export async function generateCode(
   config: ProviderConfig,
   onChunk?: (text: string) => void
@@ -28,22 +93,9 @@ export async function generateCode(
     onChunk?.(chunk.content)
   }
 
-  const ext = language === "typescript" ? "tsx" : "jsx"
+  const files = parseGeneratedFiles(fullContent, language)
 
-  // Extract component name from content
-  const nameMatch = fullContent.match(/function\s+(\w+)/) ?? fullContent.match(/const\s+(\w+)/)
-  const componentName = nameMatch?.[1] ?? "GeneratedComponent"
-
-  return {
-    files: [
-      {
-        name: `${componentName}.${ext}`,
-        content: fullContent,
-        language: language === "typescript" ? "typescript" : "javascript",
-      },
-    ],
-    tokensUsed,
-  }
+  return { files, tokensUsed }
 }
 
 export async function runGeneration(
@@ -80,7 +132,7 @@ export async function runGeneration(
     const assistantMsg: ChatMessage = {
       id: (Date.now() + 1).toString(),
       role: "assistant",
-      content: `Generated ${result.files[0]?.name}. ${result.tokensUsed} tokens used.`,
+      content: `Generated ${result.files.length} file${result.files.length > 1 ? "s" : ""}: ${result.files.map(f => f.name).join(", ")}. ${result.tokensUsed} tokens used.`,
       timestamp: Date.now(),
     }
     store.addChatMessage(assistantMsg)
