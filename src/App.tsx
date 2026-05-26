@@ -1,17 +1,17 @@
 import { useState, useCallback } from "react"
 import { InputPanel, ApiSettings, useApiSettings, CodeEditor, PreviewPanel, ChatPanel, ExportToolbar } from "./components"
+import { useCodeGenStore } from "./stores/codeGenStore"
 import { runGeneration } from "./agent"
 import type { ProviderConfig } from "./agent"
 
 function App() {
   const [settings, setSettings] = useApiSettings()
   const [centerView, setCenterView] = useState<"code" | "preview">("code")
+  const mode = useCodeGenStore((s) => s.mode)
 
   const resolveApiKey = useCallback((): string => {
     if (settings.apiKey) return settings.apiKey
-    // Fallback to env var (Vite exposes VITE_ prefixed vars)
-    const envKey = (import.meta as Record<string, unknown>).env as Record<string, string>
-    return envKey?.VITE_API_KEY ?? ""
+    return (import.meta.env.VITE_API_KEY as string | undefined) ?? ""
   }, [settings.apiKey])
 
   const buildConfig = useCallback((): ProviderConfig => ({
@@ -26,9 +26,17 @@ function App() {
       alert("Please configure your LLM API key in Settings first.")
       return
     }
-    setCenterView("code")
-    runGeneration(buildConfig())
-  }, [resolveApiKey, buildConfig])
+    if (mode === "chat") {
+      // Chat mode: send prompt as a user message
+      const prompt = useCodeGenStore.getState().prompt
+      if (!prompt.trim()) return
+      runGeneration(buildConfig(), prompt.trim())
+      useCodeGenStore.getState().setPrompt("")
+    } else {
+      setCenterView("code")
+      runGeneration(buildConfig())
+    }
+  }, [resolveApiKey, buildConfig, mode])
 
   const handleChatSend = useCallback((message: string) => {
     if (!resolveApiKey()) {
@@ -44,7 +52,7 @@ function App() {
         <div>
           <h1 className="text-lg font-semibold tracking-tight">AI Code Gen</h1>
           <p className="text-xs text-zinc-500">
-            Generate React components from natural language
+            Generate components from natural language — React + Vue
           </p>
         </div>
         <div className="text-xs text-zinc-600">

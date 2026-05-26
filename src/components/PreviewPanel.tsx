@@ -9,7 +9,7 @@ import { cn } from "../lib/utils"
 import { useState, useRef, useLayoutEffect } from "react"
 
 export function PreviewPanel() {
-  const { generatedFiles, activeFileIndex } = useCodeGenStore()
+  const { generatedFiles, activeFileIndex, framework } = useCodeGenStore()
   const [viewMode, setViewMode] = useState<"preview" | "code">("preview")
   const contentRef = useRef<HTMLDivElement>(null)
   const [height, setHeight] = useState(0)
@@ -33,20 +33,58 @@ export function PreviewPanel() {
   }
 
   const activeFile = generatedFiles[activeFileIndex] ?? generatedFiles[0]
-  const isTsx = activeFile.name.endsWith(".tsx") || activeFile.name.endsWith(".ts")
+  const isVue = framework === "vue"
 
-  const files: Record<string, string> = {
-    "/App.tsx": activeFile.content,
-    "/styles.css":
-      "body { margin: 0; font-family: system-ui, sans-serif; } * { box-sizing: border-box; }",
-  }
+  let files: Record<string, string>
+  let template: string
 
-  const ext = isTsx ? "tsx" : "jsx"
-  files[`/index.${ext}`] = `import App from "./App"
+  if (isVue) {
+    const content = activeFile.content
+    const hasTemplate = content.includes("<template>")
+    const hasScript = content.includes("<script")
+    const hasStyle = content.includes("<style")
+
+    // Ensure the content is a valid Vue SFC
+    const wrappedContent =
+      hasTemplate || hasScript || hasStyle
+        ? content
+        : `<script setup lang="ts">
+${content}
+</script>
+
+<template>
+  <div class="p-4">
+    <h1 class="text-2xl font-bold">Vue Component</h1>
+  </div>
+</template>`
+
+    files = {
+      "/App.vue": wrappedContent,
+      "/styles.css":
+        "body { margin: 0; font-family: system-ui, sans-serif; } * { box-sizing: border-box; }",
+      "/index.ts": `import { createApp } from "vue"
+import App from "./App.vue"
+
+createApp(App).mount("#app")
+`,
+    }
+    template = "vue-ts"
+  } else {
+    const isTsx = activeFile.name.endsWith(".tsx") || activeFile.name.endsWith(".ts")
+    const ext = isTsx ? "tsx" : "jsx"
+
+    files = {
+      "/App.tsx": activeFile.content,
+      "/styles.css":
+        "body { margin: 0; font-family: system-ui, sans-serif; } * { box-sizing: border-box; }",
+    }
+    files[`/index.${ext}`] = `import App from "./App"
 import { createRoot } from "react-dom/client"
 
 createRoot(document.getElementById("root")!).render(<App />)
 `
+    template = "react-ts"
+  }
 
   return (
     <div className="flex flex-col h-full min-h-0">
@@ -76,7 +114,7 @@ createRoot(document.getElementById("root")!).render(<App />)
       </div>
       <div ref={contentRef} className="flex-1 min-h-0">
         <SandpackProvider
-          template="react-ts"
+          template={template as "react-ts" | "vue-ts"}
           files={files}
           theme="dark"
           options={{

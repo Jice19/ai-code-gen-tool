@@ -1,14 +1,16 @@
 import { create } from "zustand"
-import type { ChatMessage, Framework, Language, GeneratedFile } from "../types"
+import type { ChatMessage, Framework, Language, Mode, GeneratedFile } from "../types"
 
 interface CodeGenState {
   // Input
   prompt: string
   framework: Framework
   language: Language
+  mode: Mode
   setPrompt: (prompt: string) => void
   setFramework: (framework: Framework) => void
   setLanguage: (language: Language) => void
+  setMode: (mode: Mode) => void
 
   // Generation
   isGenerating: boolean
@@ -38,9 +40,11 @@ export const useCodeGenStore = create<CodeGenState>((set, get) => ({
   prompt: "",
   framework: "react",
   language: "typescript",
+  mode: "code",
   setPrompt: (prompt) => set({ prompt }),
   setFramework: (framework) => set({ framework }),
   setLanguage: (language) => set({ language }),
+  setMode: (mode) => set({ mode }),
 
   // Generation defaults
   isGenerating: false,

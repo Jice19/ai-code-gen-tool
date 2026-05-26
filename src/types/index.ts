@@ -11,6 +11,7 @@ export interface ChatMessage {
   timestamp: number
 }
 
-export type Framework = "react"
+export type Framework = "react" | "vue"
+export type Mode = "chat" | "code"
 export type Language = "typescript" | "javascript"
 

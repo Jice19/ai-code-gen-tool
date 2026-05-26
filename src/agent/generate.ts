@@ -1,4 +1,4 @@
-import { streamGenerate, buildMessages } from "./index"
+import { streamGenerate, buildMessages, buildChatMessages } from "./index"
 import type { ProviderConfig } from "./index"
 import { useCodeGenStore } from "../stores/codeGenStore"
 import type { GeneratedFile, ChatMessage } from "../types"
@@ -7,9 +7,11 @@ const FILE_DELIMITER = /^\/\/ file: (.+)$/m
 
 function parseGeneratedFiles(
   fullContent: string,
-  language: string
+  language: string,
+  framework?: string
 ): GeneratedFile[] {
-  const ext = language === "typescript" ? "tsx" : "jsx"
+  const ext =
+    framework === "vue" ? "vue" : language === "typescript" ? "tsx" : "jsx"
 
   // Split by the "// file:" delimiter
   const parts = fullContent.split(FILE_DELIMITER)
@@ -18,7 +20,9 @@ function parseGeneratedFiles(
     // Single file — no delimiter found
     const nameMatch =
       fullContent.match(/function\s+(\w+)/) ??
-      fullContent.match(/const\s+(\w+)/)
+      fullContent.match(/const\s+(\w+)/) ??
+      fullContent.match(/defineComponent\(\s*["'](\w+)["']/) ??
+      fullContent.match(/export\s+default\s*\{/)
     const componentName = nameMatch?.[1] ?? "GeneratedComponent"
 
     return [
@@ -46,6 +50,7 @@ function parseGeneratedFiles(
       ts: "typescript",
       jsx: "javascript",
       js: "javascript",
+      vue: "html",
       css: "css",
     }
     const fileLanguage = langMap[fileExt] ?? "text"
@@ -63,7 +68,7 @@ function parseGeneratedFiles(
         {
           name: `GeneratedComponent.${ext}`,
           content: fullContent.trim(),
-          language: language === "typescript" ? "typescript" : "javascript",
+          language: framework === "vue" ? "html" : language === "typescript" ? "typescript" : "javascript",
         },
       ]
 }
@@ -74,14 +79,14 @@ export async function generateCode(
   signal?: AbortSignal
 ): Promise<{ files: GeneratedFile[]; tokensUsed: number }> {
   const state = useCodeGenStore.getState()
-  const { prompt, language, generatedFiles, chatMessages } = state
+  const { prompt, language, framework, generatedFiles, chatMessages } = state
 
   const previousCode = generatedFiles.length > 0
     ? generatedFiles.map((f) => f.content).join("\n\n")
     : undefined
 
   const messages = buildMessages(
-    { prompt, language, previousCode },
+    { prompt, language, framework, previousCode },
     chatMessages.length > 0 ? chatMessages : undefined
   )
 
@@ -94,9 +99,50 @@ export async function generateCode(
     onChunk?.(chunk.content)
   }
 
-  const files = parseGeneratedFiles(fullContent, language)
+  const files = parseGeneratedFiles(fullContent, language, framework)
 
   return { files, tokensUsed }
+}
+
+async function runChatGeneration(
+  config: ProviderConfig,
+  userMessage: string
+) {
+  const store = useCodeGenStore.getState()
+  const { chatMessages } = store
+
+  const messages = buildChatMessages(userMessage, chatMessages)
+
+  const assistantId = (Date.now() + 1).toString()
+  const assistantMsg: ChatMessage = {
+    id: assistantId,
+    role: "assistant",
+    content: "",
+    timestamp: Date.now(),
+  }
+  store.addChatMessage(assistantMsg)
+
+  const abortController = new AbortController()
+  store._setAbortController(abortController)
+
+  try {
+    for await (const chunk of streamGenerate(config, messages, abortController.signal)) {
+      useCodeGenStore.getState().appendChatContent(assistantId, chunk.content)
+    }
+  } catch (err) {
+    const isAbort = err instanceof DOMException && err.name === "AbortError"
+    if (isAbort) {
+      store.appendChatContent(assistantId, "\n\n*[Generation cancelled.]*")
+    } else {
+      store.appendChatContent(
+        assistantId,
+        `\n\n*[Error: ${err instanceof Error ? err.message : "Generation failed"}]*`
+      )
+    }
+  } finally {
+    store.setIsGenerating(false)
+    store._setAbortController(null)
+  }
 }
 
 export async function runGeneration(
@@ -104,8 +150,24 @@ export async function runGeneration(
   userMessage?: string
 ) {
   const store = useCodeGenStore.getState()
+  const { mode } = store
 
-  // Add user message to chat if provided
+  // Chat mode: stream text response directly to ChatPanel
+  if (mode === "chat") {
+    if (!userMessage) return
+    const chatMsg: ChatMessage = {
+      id: Date.now().toString(),
+      role: "user",
+      content: userMessage,
+      timestamp: Date.now(),
+    }
+    store.addChatMessage(chatMsg)
+    store.setIsGenerating(true)
+    await runChatGeneration(config, userMessage)
+    return
+  }
+
+  // Code mode: existing behavior
   if (userMessage) {
     const chatMsg: ChatMessage = {
       id: Date.now().toString(),
@@ -132,7 +194,6 @@ export async function runGeneration(
       useCodeGenStore.getState().tokensUsed + result.tokensUsed
     )
 
-    // Add assistant response to chat
     const assistantMsg: ChatMessage = {
       id: (Date.now() + 1).toString(),
       role: "assistant",
