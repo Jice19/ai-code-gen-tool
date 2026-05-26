@@ -22,6 +22,9 @@ interface CodeGenState {
   appendStreamingContent: (chunk: string) => void
   setTokensUsed: (tokens: number) => void
   clearGeneration: () => void
+  cancelGeneration: () => void
+  _abortController: AbortController | null
+  _setAbortController: (ctrl: AbortController | null) => void
 
   // Chat
   chatMessages: ChatMessage[]
@@ -30,7 +33,7 @@ interface CodeGenState {
   clearChat: () => void
 }
 
-export const useCodeGenStore = create<CodeGenState>((set) => ({
+export const useCodeGenStore = create<CodeGenState>((set, get) => ({
   // Input defaults
   prompt: "",
   framework: "react",
@@ -53,6 +56,15 @@ export const useCodeGenStore = create<CodeGenState>((set) => ({
   setTokensUsed: (tokensUsed) => set({ tokensUsed }),
   clearGeneration: () =>
     set({ generatedFiles: [], streamingContent: "", tokensUsed: 0, activeFileIndex: 0 }),
+  cancelGeneration: () => {
+    const { _abortController } = get()
+    if (_abortController) {
+      _abortController.abort()
+      set({ _abortController: null })
+    }
+  },
+  _abortController: null,
+  _setAbortController: (_abortController) => set({ _abortController }),
 
   // Chat defaults
   chatMessages: [],

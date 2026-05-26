@@ -70,7 +70,8 @@ function parseGeneratedFiles(
 
 export async function generateCode(
   config: ProviderConfig,
-  onChunk?: (text: string) => void
+  onChunk?: (text: string) => void,
+  signal?: AbortSignal
 ): Promise<{ files: GeneratedFile[]; tokensUsed: number }> {
   const state = useCodeGenStore.getState()
   const { prompt, framework, language, generatedFiles, chatMessages } = state
@@ -87,7 +88,7 @@ export async function generateCode(
   let fullContent = ""
   let tokensUsed = 0
 
-  for await (const chunk of streamGenerate(config, messages)) {
+  for await (const chunk of streamGenerate(config, messages, signal)) {
     fullContent += chunk.content
     tokensUsed += chunk.tokens
     onChunk?.(chunk.content)
@@ -118,10 +119,13 @@ export async function runGeneration(
   store.setIsGenerating(true)
   store.clearGeneration()
 
+  const abortController = new AbortController()
+  store._setAbortController(abortController)
+
   try {
     const result = await generateCode(config, (chunk) => {
       useCodeGenStore.getState().appendStreamingContent(chunk)
-    })
+    }, abortController.signal)
 
     store.setGeneratedFiles(result.files)
     store.setTokensUsed(
@@ -137,14 +141,18 @@ export async function runGeneration(
     }
     store.addChatMessage(assistantMsg)
   } catch (err) {
+    const isAbort = err instanceof DOMException && err.name === "AbortError"
     const errorMsg: ChatMessage = {
       id: (Date.now() + 1).toString(),
       role: "assistant",
-      content: `Error: ${err instanceof Error ? err.message : "Generation failed"}`,
+      content: isAbort
+        ? "Generation cancelled."
+        : `Error: ${err instanceof Error ? err.message : "Generation failed"}`,
       timestamp: Date.now(),
     }
     store.addChatMessage(errorMsg)
   } finally {
     store.setIsGenerating(false)
+    store._setAbortController(null)
   }
 }

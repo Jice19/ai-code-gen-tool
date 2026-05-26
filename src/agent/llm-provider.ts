@@ -82,7 +82,8 @@ function extractTokens(
 
 export async function* streamGenerate(
   config: ProviderConfig,
-  messages: Array<{ role: string; content: string }>
+  messages: Array<{ role: string; content: string }>,
+  signal?: AbortSignal
 ): AsyncGenerator<{ content: string; tokens: number }> {
   const endpoint = new URL(getEndpoint(config)).toString()
   const body = buildBody(config, messages)
@@ -91,6 +92,7 @@ export async function* streamGenerate(
     method: "POST",
     headers: getHeaders(config),
     body,
+    signal,
   })
 
   if (!response.ok) {

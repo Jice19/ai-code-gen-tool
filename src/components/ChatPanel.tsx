@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from "react"
 import { useCodeGenStore } from "../stores/codeGenStore"
 
 export function ChatPanel({ onSend }: { onSend: (message: string) => void }) {
-  const { chatMessages, isGenerating } = useCodeGenStore()
+  const { chatMessages, isGenerating, cancelGeneration } = useCodeGenStore()
   const [input, setInput] = useState("")
   const bottomRef = useRef<HTMLDivElement>(null)
 
@@ -84,6 +84,14 @@ export function ChatPanel({ onSend }: { onSend: (message: string) => void }) {
         >
           {isGenerating ? "Updating..." : "Send Modification"}
         </button>
+        {isGenerating && (
+          <button
+            className="w-full mt-1.5 py-2 rounded-lg text-xs font-medium bg-red-900/30 text-red-400 hover:bg-red-900/50 border border-red-800 transition-all"
+            onClick={cancelGeneration}
+          >
+            Cancel Generation
+          </button>
+        )}
       </div>
     </div>
   )

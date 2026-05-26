@@ -3,7 +3,7 @@ import { useCodeGenStore } from "../stores/codeGenStore"
 import type { Framework, Language } from "../types"
 
 export function InputPanel({ onGenerate }: { onGenerate: () => void }) {
-  const { prompt, framework, language, setPrompt, setFramework, setLanguage, isGenerating } =
+  const { prompt, framework, language, setPrompt, setFramework, setLanguage, isGenerating, cancelGeneration } =
     useCodeGenStore()
 
   const [charCount, setCharCount] = useState(prompt.length)
@@ -66,6 +66,15 @@ export function InputPanel({ onGenerate }: { onGenerate: () => void }) {
       >
         {isGenerating ? "Generating..." : "Generate Code"}
       </button>
+
+      {isGenerating && (
+        <button
+          className="w-full py-2 rounded-lg font-medium text-xs bg-red-900/30 text-red-400 hover:bg-red-900/50 border border-red-800 transition-all"
+          onClick={cancelGeneration}
+        >
+          Cancel Generation
+        </button>
+      )}
     </div>
   )
 }
