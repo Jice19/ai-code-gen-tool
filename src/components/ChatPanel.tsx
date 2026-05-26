@@ -120,7 +120,7 @@ export function ChatPanel({ onSend }: { onSend: (message: string) => void }) {
   const showEmpty = chatMessages.length === 0
 
   return (
-    <div className="flex flex-col h-full min-h-0">
+    <div className="flex flex-col min-h-0 flex-1">
       <div className="text-xs font-medium text-zinc-400 uppercase tracking-wider px-1 py-3 border-b border-zinc-800 shrink-0">
         Conversation
       </div>

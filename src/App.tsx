@@ -47,7 +47,7 @@ function App() {
   }, [resolveApiKey, buildConfig])
 
   return (
-    <div className="min-h-screen bg-zinc-950 text-zinc-100 flex flex-col">
+    <div className="h-screen bg-zinc-950 text-zinc-100 flex flex-col overflow-hidden">
       <header className="border-b border-zinc-800 px-6 py-3 flex items-center justify-between shrink-0">
         <div>
           <h1 className="text-lg font-semibold tracking-tight">AI Code Gen</h1>
@@ -62,7 +62,7 @@ function App() {
 
       <main className="flex-1 flex min-h-0">
         {/* Left Sidebar — Input */}
-        <aside className="w-80 border-r border-zinc-800 flex flex-col shrink-0">
+        <aside className="w-80 border-r border-zinc-800 flex flex-col shrink-0 min-h-0">
           <div className="p-4 flex flex-col gap-4">
             <InputPanel onGenerate={handleGenerate} />
           </div>
@@ -72,7 +72,7 @@ function App() {
         </aside>
 
         {/* Center — Editor + Preview */}
-        <section className="flex-1 flex flex-col min-w-0">
+        <section className="flex-1 flex flex-col min-w-0 min-h-0">
           {/* Toggle tabs */}
           <div className="flex items-center border-b border-zinc-800 shrink-0">
             <button
@@ -105,7 +105,7 @@ function App() {
         </section>
 
         {/* Right Sidebar — Chat */}
-        <aside className="w-80 border-l border-zinc-800 flex flex-col p-4 shrink-0">
+        <aside className="w-80 border-l border-zinc-800 flex flex-col p-4 shrink-0 min-h-0">
           <ChatPanel onSend={handleChatSend} />
         </aside>
       </main>
