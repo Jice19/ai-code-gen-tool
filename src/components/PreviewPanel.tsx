@@ -277,12 +277,15 @@ export function PreviewPanel() {
               borderRadius: 0,
             }}
           >
-            <div style={{ display: viewMode === "preview" ? "flex" : "none", flex: 1 }}>
-              <SandpackPreview showNavigator={false} showRefreshButton />
-            </div>
-            <div style={{ display: viewMode === "code" ? "flex" : "none", flex: 1 }}>
-              <SandpackCodeEditor showLineNumbers />
-            </div>
+            <SandpackPreview
+              showNavigator={false}
+              showRefreshButton
+              style={viewMode !== "preview" ? { display: "none" } : undefined}
+            />
+            <SandpackCodeEditor
+              showLineNumbers
+              style={viewMode !== "code" ? { display: "none" } : undefined}
+            />
           </SandpackLayout>
         </SandpackProvider>
       </div>
