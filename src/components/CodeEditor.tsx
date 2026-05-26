@@ -2,6 +2,7 @@ import { useRef, useCallback } from "react"
 import Editor, { type OnMount } from "@monaco-editor/react"
 import type { editor } from "monaco-editor"
 import { useCodeGenStore } from "../stores/codeGenStore"
+import { cn } from "../lib/utils"
 
 export function CodeEditor() {
   const editorRef = useRef<editor.IStandaloneCodeEditor | null>(null)
@@ -73,11 +74,12 @@ function FileTab({ name, index }: { name: string; index: number }) {
 
   return (
     <button
-      className={`px-3 py-1 text-xs rounded-t-md transition-colors ${
+      className={cn(
+        "px-3 py-1 text-xs rounded-t-md transition-colors",
         isActive
           ? "bg-zinc-800 text-zinc-100"
           : "text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800/50"
-      }`}
+      )}
       onClick={() => setActiveFileIndex(index)}
     >
       {name}

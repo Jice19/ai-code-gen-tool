@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from "react"
 import { useCodeGenStore } from "../stores/codeGenStore"
+import { cn } from "../lib/utils"
 
 export function ChatPanel({ onSend }: { onSend: (message: string) => void }) {
   const { chatMessages, isGenerating, cancelGeneration } = useCodeGenStore()
@@ -41,11 +42,12 @@ export function ChatPanel({ onSend }: { onSend: (message: string) => void }) {
             className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}
           >
             <div
-              className={`max-w-[90%] rounded-lg px-3 py-2 text-xs leading-relaxed ${
+              className={cn(
+                "max-w-[90%] rounded-lg px-3 py-2 text-xs leading-relaxed",
                 msg.role === "user"
                   ? "bg-zinc-700 text-zinc-100"
                   : "bg-zinc-800/50 text-zinc-300 border border-zinc-700/50"
-              }`}
+              )}
             >
               <div className="text-[10px] uppercase tracking-wider mb-1 text-zinc-500">
                 {msg.role === "user" ? "You" : "Assistant"}

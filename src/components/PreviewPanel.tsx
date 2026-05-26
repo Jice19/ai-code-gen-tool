@@ -5,6 +5,7 @@ import {
   SandpackCodeEditor,
 } from "@codesandbox/sandpack-react"
 import { useCodeGenStore } from "../stores/codeGenStore"
+import { cn } from "../lib/utils"
 import { useState, useRef, useLayoutEffect } from "react"
 
 export function PreviewPanel() {
@@ -51,21 +52,23 @@ createRoot(document.getElementById("root")!).render(<App />)
     <div className="flex flex-col h-full min-h-0">
       <div className="flex items-center gap-1 px-4 py-2 border-b border-zinc-800 shrink-0">
         <button
-          className={`px-3 py-1 text-xs rounded transition-colors ${
+          className={cn(
+            "px-3 py-1 text-xs rounded transition-colors",
             viewMode === "preview"
               ? "bg-zinc-700 text-zinc-100"
               : "text-zinc-500 hover:text-zinc-300"
-          }`}
+          )}
           onClick={() => setViewMode("preview")}
         >
           Preview
         </button>
         <button
-          className={`px-3 py-1 text-xs rounded transition-colors ${
+          className={cn(
+            "px-3 py-1 text-xs rounded transition-colors",
             viewMode === "code"
               ? "bg-zinc-700 text-zinc-100"
               : "text-zinc-500 hover:text-zinc-300"
-          }`}
+          )}
           onClick={() => setViewMode("code")}
         >
           Source
