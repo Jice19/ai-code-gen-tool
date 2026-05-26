@@ -39,11 +39,19 @@ import { useState } from "react"
 If only one file is needed, just output the code directly without the delimiter.`
 }
 
+const MAX_PREVIOUS_CODE_LENGTH = 8000
+const MAX_CHAT_HISTORY = 20
+
 export function buildUserPrompt(opts: PromptOpts): string {
   let prompt = `Create a React component: ${opts.prompt}`
 
   if (opts.previousCode) {
-    prompt += `\n\nCurrent code to modify:\n\`\`\`\n${opts.previousCode}\n\`\`\``
+    const code =
+      opts.previousCode.length > MAX_PREVIOUS_CODE_LENGTH
+        ? opts.previousCode.slice(0, MAX_PREVIOUS_CODE_LENGTH) +
+          "\n// ... (truncated)"
+        : opts.previousCode
+    prompt += `\n\nCurrent code to modify:\n\`\`\`\n${code}\n\`\`\``
   }
 
   return prompt
@@ -58,7 +66,9 @@ export function buildMessages(
   ]
 
   if (chatHistory && chatHistory.length > 0) {
-    for (const msg of chatHistory) {
+    // Keep only the most recent messages to avoid context overflow
+    const recent = chatHistory.slice(-MAX_CHAT_HISTORY)
+    for (const msg of recent) {
       msgs.push({ role: msg.role, content: msg.content })
     }
   }
