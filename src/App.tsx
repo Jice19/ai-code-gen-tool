@@ -4,6 +4,7 @@ import { useCodeGenStore } from "./stores/codeGenStore"
 import { useToastStore } from "./stores/toastStore"
 import { runGeneration } from "./agent"
 import type { ProviderConfig } from "./agent"
+import { useKeyboardShortcuts } from "./lib/keybindings"
 
 function App() {
   const [settings, setSettings] = useApiSettings()
@@ -57,6 +58,22 @@ function App() {
     runGeneration(buildConfig(), message)
   }, [resolveApiKey, buildConfig])
 
+  const handleCancel = useCallback(() => {
+    useCodeGenStore.getState().cancelGeneration()
+  }, [])
+
+  const handleFocusInput = useCallback(() => {
+    const el = document.getElementById("prompt-input")
+    el?.focus()
+  }, [])
+
+  useKeyboardShortcuts({
+    onGenerate: handleGenerate,
+    onCancel: handleCancel,
+    onFocusInput: handleFocusInput,
+    isGenerating,
+  })
+
   return (
     <div className="h-screen bg-zinc-950 text-zinc-100 flex flex-col overflow-hidden">
       <header className="border-b border-zinc-800 px-6 py-3 flex items-center justify-between shrink-0">
@@ -66,8 +83,13 @@ function App() {
             Generate components from natural language — React + Vue
           </p>
         </div>
-        <div className="text-xs text-zinc-600">
-          {settings.provider} / {settings.model || "no model"}
+        <div className="flex items-center gap-4">
+          <span className="text-[10px] text-zinc-700">
+            {/Mac|iPhone|iPad/.test(navigator.userAgent) ? "⌘" : "Ctrl"}+Enter to generate
+          </span>
+          <span className="text-xs text-zinc-600">
+            {settings.provider} / {settings.model || "no model"}
+          </span>
         </div>
       </header>
 

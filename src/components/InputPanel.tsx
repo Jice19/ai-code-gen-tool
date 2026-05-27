@@ -45,6 +45,7 @@ export function InputPanel({ onGenerate }: { onGenerate: () => void }) {
           {isChatMode ? "Ask anything" : "Describe your component"}
         </label>
         <textarea
+          id="prompt-input"
           className="mt-2 w-full h-36 bg-zinc-900 border border-zinc-700 rounded-lg p-3 text-sm text-zinc-100 placeholder-zinc-500 resize-none focus:outline-none focus:border-zinc-500 transition-colors"
           placeholder={
             isChatMode
