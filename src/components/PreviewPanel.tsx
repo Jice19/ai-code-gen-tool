@@ -9,7 +9,8 @@ import { useCodeGenStore } from "../stores/codeGenStore"
 import { cn } from "../lib/utils"
 import { useState, useEffect, useRef, useCallback } from "react"
 import { runSelfHealingFix, getLastConfig } from "../agent"
-import type { CapturedError } from "../types"
+import { DiffView } from "./DiffView"
+import type { CapturedError, GeneratedFile } from "../types"
 
 function buildSandpackFiles(
   generatedFiles: { name: string; content: string }[],
@@ -70,6 +71,7 @@ function SandpackSelfHealing() {
   const [isFixing, setIsFixing] = useState(false)
   const [fixStatus, setFixStatus] = useState("")
   const [isWaitingForUser, setIsWaitingForUser] = useState(false)
+  const [lastFix, setLastFix] = useState<{ beforeFiles: GeneratedFile[]; afterFiles: GeneratedFile[] } | null>(null)
 
   // Reset state when a new user generation comes in (files reference changes
   // while we're not in a self-healing cycle)
@@ -198,6 +200,9 @@ function SandpackSelfHealing() {
       })
 
       currentState.pushToHistory(result.files)
+
+      setLastFix({ beforeFiles: [...beforeFiles], afterFiles: result.files })
+
       currentState.setGeneratedFiles(result.files)
       currentState.setTokensUsed(currentState.tokensUsed + result.tokensUsed)
 
@@ -232,25 +237,32 @@ function SandpackSelfHealing() {
   if (!isFixing && !fixStatus && !isWaitingForUser) return null
 
   return (
-    <div
-      className={cn(
-        "px-4 py-2 text-xs flex items-center gap-2 border-b border-zinc-800 shrink-0",
-        isWaitingForUser
-          ? "text-blue-400 bg-blue-950/30"
-          : fixStatus.includes("failed") || fixStatus.includes("Max retries")
-            ? "text-red-400 bg-red-950/30"
-            : "text-amber-400 bg-amber-950/30"
+    <>
+      <div
+        className={cn(
+          "px-4 py-2 text-xs flex items-center gap-2 border-b border-zinc-800 shrink-0",
+          isWaitingForUser
+            ? "text-blue-400 bg-blue-950/30"
+            : fixStatus.includes("failed") || fixStatus.includes("Max retries")
+              ? "text-red-400 bg-red-950/30"
+              : "text-amber-400 bg-amber-950/30"
+        )}
+      >
+        <span className={cn(!isWaitingForUser && "animate-pulse")}>
+          {isWaitingForUser ? "◎" : fixStatus.includes("failed") || fixStatus.includes("Max retries") ? "✕" : "⚠"}
+        </span>
+        <span>
+          {isWaitingForUser
+            ? `Detected ${errorsRef.current.length} error${errorsRef.current.length > 1 ? "s" : ""} in edited code. Auto-fix in a few seconds...`
+            : fixStatus}
+        </span>
+      </div>
+      {lastFix && (
+        <div className="px-4 py-2 border-b border-zinc-800 shrink-0">
+          <DiffView beforeFiles={lastFix.beforeFiles} afterFiles={lastFix.afterFiles} />
+        </div>
       )}
-    >
-      <span className={cn(!isWaitingForUser && "animate-pulse")}>
-        {isWaitingForUser ? "◎" : fixStatus.includes("failed") || fixStatus.includes("Max retries") ? "✕" : "⚠"}
-      </span>
-      <span>
-        {isWaitingForUser
-          ? `Detected ${errorsRef.current.length} error${errorsRef.current.length > 1 ? "s" : ""} in edited code. Auto-fix in a few seconds...`
-          : fixStatus}
-      </span>
-    </div>
+    </>
   )
 }
 
