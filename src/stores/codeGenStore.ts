@@ -21,6 +21,7 @@ interface CodeGenState {
   setIsGenerating: (v: boolean) => void
   setGeneratedFiles: (files: GeneratedFile[]) => void
   setActiveFileIndex: (index: number) => void
+  updateFileContent: (index: number, content: string) => void
   appendStreamingContent: (chunk: string) => void
   setTokensUsed: (tokens: number) => void
   clearGeneration: () => void
@@ -65,6 +66,12 @@ export const useCodeGenStore = create<CodeGenState>((set, get) => ({
   setIsGenerating: (isGenerating) => set({ isGenerating }),
   setGeneratedFiles: (generatedFiles) => set({ generatedFiles, activeFileIndex: 0 }),
   setActiveFileIndex: (activeFileIndex) => set({ activeFileIndex }),
+  updateFileContent: (index, content) =>
+    set((s) => ({
+      generatedFiles: s.generatedFiles.map((f, i) =>
+        i === index ? { ...f, content } : f
+      ),
+    })),
   appendStreamingContent: (chunk) =>
     set((s) => ({ streamingContent: s.streamingContent + chunk })),
   setTokensUsed: (tokensUsed) => set({ tokensUsed }),

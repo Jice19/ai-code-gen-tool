@@ -6,8 +6,17 @@ import { cn } from "../lib/utils"
 
 export function CodeEditor() {
   const editorRef = useRef<editor.IStandaloneCodeEditor | null>(null)
-  const { generatedFiles, activeFileIndex, streamingContent, isGenerating, language: storeLanguage } =
-    useCodeGenStore()
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const ignoreNextChangeRef = useRef(false)
+
+  const {
+    generatedFiles,
+    activeFileIndex,
+    streamingContent,
+    isGenerating,
+    language: storeLanguage,
+    updateFileContent,
+  } = useCodeGenStore()
 
   const activeFile = generatedFiles[activeFileIndex]
   const displayContent = activeFile
@@ -26,8 +35,45 @@ export function CodeEditor() {
     editor.revealLine(lastLine)
   }, [displayContent, isGenerating])
 
+  // When programmatic content changes (streaming, tab switch, new generation),
+  // flag to ignore the next onDidChangeContent event
+  useEffect(() => {
+    ignoreNextChangeRef.current = true
+  }, [activeFileIndex, displayContent])
+
   const handleMount: OnMount = useCallback((editor) => {
     editorRef.current = editor
+    const model = editor.getModel()
+    if (!model) return
+
+    model.onDidChangeContent(() => {
+      // Ignore content changes triggered by external value updates (streaming, tab switch)
+      if (ignoreNextChangeRef.current) {
+        ignoreNextChangeRef.current = false
+        return
+      }
+
+      if (debounceRef.current) clearTimeout(debounceRef.current)
+
+      debounceRef.current = setTimeout(() => {
+        const state = useCodeGenStore.getState()
+        if (state.isGenerating) return
+        if (state.generatedFiles.length === 0) return
+
+        const content = editor.getValue()
+        const idx = state.activeFileIndex
+        if (state.generatedFiles[idx]?.content !== content) {
+          updateFileContent(idx, content)
+        }
+      }, 300)
+    })
+  }, [])
+
+  // Cleanup debounce on unmount
+  useEffect(() => {
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current)
+    }
   }, [])
 
   return (
@@ -47,7 +93,7 @@ export function CodeEditor() {
           theme="vs-dark"
           onMount={handleMount}
           options={{
-            readOnly: true,
+            readOnly: isGenerating,
             minimap: { enabled: false },
             fontSize: 13,
             lineNumbers: "on",
@@ -71,6 +117,11 @@ export function CodeEditor() {
         {!activeFile && !isGenerating && !streamingContent && (
           <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
             <span className="text-sm text-zinc-500">Generated code will appear here</span>
+          </div>
+        )}
+        {!isGenerating && activeFile && (
+          <div className="absolute bottom-3 left-3 text-[10px] text-zinc-600 bg-zinc-900/80 rounded px-2 py-1">
+            Editable — changes sync to Preview
           </div>
         )}
       </div>
