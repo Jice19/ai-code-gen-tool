@@ -6,6 +6,7 @@ import { runGeneration } from "./agent"
 import type { ProviderConfig } from "./agent"
 import { useKeyboardShortcuts } from "./lib/keybindings"
 import { cn } from "./lib/utils"
+import { estimateCost, formatTokens, formatCost } from "./lib/tokenCost"
 
 const SIDEBAR_W = 320
 
@@ -16,6 +17,7 @@ function App() {
   const [rightCollapsed, setRightCollapsed] = useState(false)
   const mode = useCodeGenStore((s) => s.mode)
   const isGenerating = useCodeGenStore((s) => s.isGenerating)
+  const tokensUsed = useCodeGenStore((s) => s.tokensUsed)
   const wasGeneratingRef = useRef(isGenerating)
 
   // Auto-switch to Preview when generation completes
@@ -100,6 +102,11 @@ function App() {
           <span className="text-[10px] text-zinc-700 hidden sm:inline">
             {/Mac|iPhone|iPad/.test(navigator.userAgent) ? "⌘" : "Ctrl"}+Enter to generate
           </span>
+          {tokensUsed > 0 && (
+            <span className="text-[10px] text-zinc-600 bg-zinc-900 rounded-full px-2 py-0.5" title={`${tokensUsed.toLocaleString()} tokens · ~${formatCost(estimateCost(settings.model, tokensUsed))} estimated cost`}>
+              {formatTokens(tokensUsed)} tokens · ~{formatCost(estimateCost(settings.model, tokensUsed))}
+            </span>
+          )}
           <span className="text-xs text-zinc-600">
             {settings.provider} / {settings.model || "no model"}
           </span>
