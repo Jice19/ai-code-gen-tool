@@ -1,4 +1,5 @@
 import type { Language, Framework, ChatMessage, CapturedError, GeneratedFile } from "../types"
+import { formatToolsForPrompt, type ToolDefinition } from "./tools"
 
 interface PromptOpts {
   prompt: string
@@ -386,4 +387,103 @@ export function buildFixPrompt(
       content: `Fix the following errors in the code:\n\n${errorList}\n\n## Current Files\n${fileList}\n${guidance}`,
     },
   ]
+}
+
+// --- Agent Tool-Using Mode ---
+
+interface AgentPromptOpts {
+  prompt: string
+  language: Language
+  framework?: Framework
+  tools: ToolDefinition[]
+}
+
+export function buildAgentSystemPrompt(opts: AgentPromptOpts): string {
+  const frameworkLabel = opts.framework === "vue" ? "Vue 3" : "React"
+  const langName = opts.language === "typescript" ? "TypeScript" : "JavaScript"
+  const ext = opts.framework === "vue" ? "vue" : opts.language === "typescript" ? "tsx" : "jsx"
+
+  return `You are an expert frontend developer Agent with access to tools. Your goal is to generate complete, working ${frameworkLabel} + ${langName} code.
+
+## Workflow
+1. Analyze the user's request and plan the file structure
+2. Write files one at a time using the writeFile tool
+3. After writing all files, run runCheck to validate
+4. If checks fail, read the problematic files, fix them, and re-check
+5. Call done() when everything is working
+
+## Rules
+- Framework: ${frameworkLabel} with full ${langName}
+- Styling: ${opts.framework === "vue" ? "Use <style scoped> with clean CSS. Do NOT use Tailwind." : "Tailwind CSS (utility-first)"}
+- All components must be self-contained
+- Export components as default
+- Do NOT use external npm packages (no uuid, axios, lodash, etc.)
+- Use only framework built-in APIs and native browser APIs
+- Every state variable MUST have an initial value
+- All array/object props MUST have default values
+- Handle empty/null/undefined states explicitly
+
+## Output Format
+For each turn, output your thinking in plain text, then optionally ONE tool call in this exact format:
+
+<tool_call>
+{"name": "toolName", "arguments": {"key": "value"}}
+</tool_call>
+
+IMPORTANT:
+- Each turn may contain at MOST one tool call
+- Tool call JSON must be on a single line between the tags
+- Write your thought first, then the tool call (if needed)
+- Use done() to finish — do NOT stop without calling done()
+
+## Available Tools
+
+${formatToolsForPrompt(opts.tools)}
+
+## Example Workflow
+
+User: "Create a counter button component"
+
+Your response:
+I'll create a single Counter.${ext} component with useState for the count.
+
+<tool_call>
+{"name": "writeFile", "arguments": {"path": "Counter.${ext}", "content": "import { useState } from \\"react\\"\\n\\nexport default function Counter() {\\n  const [count, setCount] = useState(0)\\n\\n  return (\\n    <div className=\\"flex items-center gap-4 p-4\\">\\n      <button className=\\"px-4 py-2 bg-zinc-700 text-white rounded-lg\\" onClick={() => setCount(c => c - 1)}>-</button>\\n      <span className=\\"text-2xl font-bold\\">{count}</span>\\n      <button className=\\"px-4 py-2 bg-zinc-700 text-white rounded-lg\\" onClick={() => setCount(c => c + 1)}>+</button>\\n    </div>\\n  )\\n}"}}
+</tool_call>
+
+--- next turn (LLM receives tool result) ---
+
+File written. Now let me check it.
+
+<tool_call>
+{"name": "runCheck", "arguments": {}}
+</tool_call>
+
+--- next turn ---
+
+All checks passed. Task complete.
+
+<tool_call>
+{"name": "done", "arguments": {"summary": "Created Counter component with increment/decrement"}}
+</tool_call>`
+}
+
+export function buildAgentMessages(
+  opts: AgentPromptOpts,
+  chatHistory?: ChatMessage[]
+): Array<{ role: string; content: string }> {
+  const msgs: Array<{ role: string; content: string }> = [
+    { role: "system", content: buildAgentSystemPrompt(opts) },
+  ]
+
+  if (chatHistory && chatHistory.length > 0) {
+    const recent = chatHistory.slice(-10)
+    for (const msg of recent) {
+      msgs.push({ role: msg.role, content: msg.content })
+    }
+  }
+
+  msgs.push({ role: "user", content: opts.prompt })
+
+  return msgs
 }
