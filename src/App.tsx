@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect, useRef } from "react"
-import { InputPanel, ApiSettings, useApiSettings, CodeEditor, PreviewPanel, ChatPanel, ExportToolbar, ToastContainer } from "./components"
+import { InputPanel, ApiSettings, useApiSettings, CodeEditor, PreviewPanel, ChatPanel, ExportToolbar, ToastContainer, AgentPanel } from "./components"
 import { useCodeGenStore } from "./stores/codeGenStore"
 import { useToastStore } from "./stores/toastStore"
 import { runGeneration } from "./agent"
@@ -50,6 +50,9 @@ function App() {
       if (!prompt.trim()) return
       runGeneration(buildConfig(), prompt.trim())
       useCodeGenStore.getState().setPrompt("")
+    } else if (mode === "agent") {
+      setCenterView("code")
+      runGeneration(buildConfig())
     } else {
       setCenterView("code")
       runGeneration(buildConfig())
@@ -131,6 +134,7 @@ function App() {
         >
           <div className="p-4 flex flex-col gap-4" style={{ minWidth: SIDEBAR_W }}>
             <InputPanel onGenerate={handleGenerate} />
+            <AgentPanel />
           </div>
           <div className="mt-auto p-4 border-t border-zinc-800" style={{ minWidth: SIDEBAR_W }}>
             <ApiSettings settings={settings} setSettings={setSettings} />

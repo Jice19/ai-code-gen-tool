@@ -1,5 +1,5 @@
 import { create } from "zustand"
-import type { ChatMessage, Framework, Language, Mode, GeneratedFile, CapturedError, FixAttempt } from "../types"
+import type { ChatMessage, Framework, Language, Mode, GeneratedFile, CapturedError, FixAttempt, AgentStep } from "../types"
 
 interface CodeGenState {
   // Input
@@ -55,6 +55,13 @@ interface CodeGenState {
   addChatMessage: (msg: ChatMessage) => void
   appendChatContent: (id: string, chunk: string) => void
   clearChat: () => void
+
+  // Agent
+  agentSteps: AgentStep[]
+  agentDone: boolean
+  setAgentSteps: (steps: AgentStep[]) => void
+  addAgentStep: (step: AgentStep) => void
+  clearAgent: () => void
 }
 
 export const useCodeGenStore = create<CodeGenState>((set, get) => ({
@@ -62,7 +69,7 @@ export const useCodeGenStore = create<CodeGenState>((set, get) => ({
   prompt: "",
   framework: "react",
   language: "typescript",
-  mode: "code",
+  mode: "quick",
   setPrompt: (prompt) => set({ prompt }),
   setFramework: (framework) => set({ framework }),
   setLanguage: (language) => set({ language }),
@@ -147,4 +154,12 @@ export const useCodeGenStore = create<CodeGenState>((set, get) => ({
       ),
     })),
   clearChat: () => set({ chatMessages: [] }),
+
+  // Agent defaults
+  agentSteps: [],
+  agentDone: false,
+  setAgentSteps: (agentSteps) => set({ agentSteps }),
+  addAgentStep: (step) =>
+    set((s) => ({ agentSteps: [...s.agentSteps, step] })),
+  clearAgent: () => set({ agentSteps: [], agentDone: false }),
 }))

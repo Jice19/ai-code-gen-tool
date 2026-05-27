@@ -18,12 +18,13 @@ export function InputPanel({ onGenerate }: { onGenerate: () => void }) {
   }
 
   const isChatMode = mode === "chat"
+  const isAgentMode = mode === "agent"
 
   return (
     <div className="flex flex-col gap-4">
       {/* Mode Toggle */}
       <div className="flex bg-zinc-900 rounded-lg p-0.5">
-        {(["chat", "code"] as Mode[]).map((m) => (
+        {(["chat", "quick", "agent"] as Mode[]).map((m) => (
           <button
             key={m}
             className={cn(
@@ -35,14 +36,14 @@ export function InputPanel({ onGenerate }: { onGenerate: () => void }) {
             onClick={() => setMode(m)}
             disabled={isGenerating}
           >
-            {m}
+            {m === "quick" ? "code" : m}
           </button>
         ))}
       </div>
 
       <div>
         <label className="text-xs font-medium text-zinc-400 uppercase tracking-wider">
-          {isChatMode ? "Ask anything" : "Describe your component"}
+          {isChatMode ? "Ask anything" : isAgentMode ? "Describe what to build (Agent mode)" : "Describe your component"}
         </label>
         <textarea
           id="prompt-input"
@@ -50,7 +51,9 @@ export function InputPanel({ onGenerate }: { onGenerate: () => void }) {
           placeholder={
             isChatMode
               ? "e.g. How do I handle race conditions with async state in React?"
-              : "e.g. A signup form with email, password, and a submit button. Show validation errors inline."
+              : isAgentMode
+                ? "e.g. Build a kanban board with drag-and-drop, search, and filter by status"
+                : "e.g. A signup form with email, password, and a submit button. Show validation errors inline."
           }
           value={prompt}
           onChange={(e) => handlePromptChange(e.target.value)}
@@ -59,7 +62,7 @@ export function InputPanel({ onGenerate }: { onGenerate: () => void }) {
         <div className="text-right text-xs text-zinc-500 mt-1">{charCount} chars</div>
       </div>
 
-      {!isChatMode && (
+      {!isChatMode && !isAgentMode && (
         <>
           <div className="flex gap-3">
             <div className="flex-1">
@@ -102,10 +105,14 @@ export function InputPanel({ onGenerate }: { onGenerate: () => void }) {
         {isGenerating
           ? isChatMode
             ? "Thinking..."
-            : "Generating..."
+            : isAgentMode
+              ? "Agent is working..."
+              : "Generating..."
           : isChatMode
             ? "Send Message"
-            : "Generate Code"}
+            : isAgentMode
+              ? "Start Agent"
+              : "Generate Code"}
       </button>
 
       {isGenerating && (

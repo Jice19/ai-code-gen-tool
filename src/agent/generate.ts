@@ -1,4 +1,4 @@
-import { streamGenerate, buildMessages, buildChatMessages, buildFixPrompt } from "./index"
+import { streamGenerate, buildMessages, buildChatMessages, buildFixPrompt, runAgentLoop } from "./index"
 import type { ProviderConfig } from "./index"
 import { useCodeGenStore } from "../stores/codeGenStore"
 import { useToastStore } from "../stores/toastStore"
@@ -301,7 +301,77 @@ export async function runGeneration(
     return
   }
 
-  // Code mode: existing behavior
+  // Agent mode: tool-using agent loop
+  if (mode === "agent") {
+    if (userMessage) {
+      store.setPrompt(userMessage)
+    }
+    if (!store.prompt.trim()) return
+
+    store.setIsGenerating(true)
+    store.clearAgent()
+    store.clearGeneration()
+
+    const userMsg: ChatMessage = {
+      id: Date.now().toString(),
+      role: "user",
+      content: store.prompt,
+      timestamp: Date.now(),
+    }
+    store.addChatMessage(userMsg)
+
+    const abortController = new AbortController()
+    store._setAbortController(abortController)
+
+    try {
+      for await (const event of runAgentLoop(
+        config,
+        store.prompt,
+        store.language,
+        store.framework,
+        store.chatMessages,
+        abortController.signal
+      )) {
+        if (event.type === "step" && event.step) {
+          store.addAgentStep(event.step)
+        } else if (event.type === "files" && event.files) {
+          // Save current files to history before replacing
+          store.pushToHistory(event.files)
+          store.setGeneratedFiles(event.files)
+          store.markAiGenerationComplete()
+        } else if (event.type === "error" && event.error) {
+          useToastStore.getState().addToast("error", `Agent error: ${event.error}`)
+          const errMsg: ChatMessage = {
+            id: (Date.now() + 1).toString(),
+            role: "assistant",
+            content: `Agent error: ${event.error}`,
+            timestamp: Date.now(),
+          }
+          store.addChatMessage(errMsg)
+        }
+      }
+
+      const doneMsg: ChatMessage = {
+        id: (Date.now() + 1).toString(),
+        role: "assistant",
+        content: `Agent completed. ${store.generatedFiles.length} file(s) generated.`,
+        timestamp: Date.now(),
+      }
+      store.addChatMessage(doneMsg)
+    } catch (err) {
+      const isAbort = err instanceof DOMException && err.name === "AbortError"
+      if (!isAbort) {
+        const errMsg = err instanceof Error ? err.message : "Agent failed"
+        useToastStore.getState().addToast("error", `Agent error: ${errMsg}`)
+      }
+    } finally {
+      store.setIsGenerating(false)
+      store._setAbortController(null)
+    }
+    return
+  }
+
+  // Quick mode: existing behavior
   if (userMessage) {
     const chatMsg: ChatMessage = {
       id: Date.now().toString(),

@@ -49,6 +49,6 @@ export interface AgentStep {
 }
 
 export type Framework = "react" | "vue"
-export type Mode = "chat" | "code" | "agent"
+export type Mode = "chat" | "quick" | "agent"
 export type Language = "typescript" | "javascript"
 
