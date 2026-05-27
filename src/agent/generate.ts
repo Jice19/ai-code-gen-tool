@@ -333,6 +333,7 @@ export async function runGeneration(
     // Save current files to history before replacing (always, including the very first generation)
     store.pushToHistory(result.files)
     store.setGeneratedFiles(result.files)
+    store.markAiGenerationComplete()
     store.setTokensUsed(
       useCodeGenStore.getState().tokensUsed + result.tokensUsed
     )

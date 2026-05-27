@@ -36,10 +36,12 @@ interface CodeGenState {
   maxRetries: number
   capturedErrors: CapturedError[]
   fixHistory: FixAttempt[]
+  lastAiGenerationTime: number
   incrementRetry: () => void
   resetRetries: () => void
   setCapturedErrors: (errors: CapturedError[]) => void
   addFixAttempt: (attempt: FixAttempt) => void
+  markAiGenerationComplete: () => void
 
   // History
   generationHistory: GeneratedFile[][]
@@ -103,11 +105,13 @@ export const useCodeGenStore = create<CodeGenState>((set, get) => ({
   maxRetries: 3,
   capturedErrors: [],
   fixHistory: [],
+  lastAiGenerationTime: 0,
   incrementRetry: () => set((s) => ({ retryCount: s.retryCount + 1 })),
   resetRetries: () => set({ retryCount: 0, capturedErrors: [], fixHistory: [] }),
   setCapturedErrors: (capturedErrors) => set({ capturedErrors }),
   addFixAttempt: (attempt) =>
     set((s) => ({ fixHistory: [...s.fixHistory, attempt] })),
+  markAiGenerationComplete: () => set({ lastAiGenerationTime: Date.now() }),
 
   // History defaults
   generationHistory: [],

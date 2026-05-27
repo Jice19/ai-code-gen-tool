@@ -74,11 +74,12 @@ function SandpackSelfHealing() {
   const [isWaitingForUser, setIsWaitingForUser] = useState(false)
   const [lastFix, setLastFix] = useState<{ beforeFiles: GeneratedFile[]; afterFiles: GeneratedFile[] } | null>(null)
 
-  // Reset state when a new user generation comes in (files reference changes
-  // while we're not in a self-healing cycle)
+  // Reset state when AI generation completes (NOT on user edits in Monaco)
+  const prevAiGenTimeRef = useRef(store.lastAiGenerationTime)
   useEffect(() => {
-    if (prevFilesRef.current !== store.generatedFiles) {
-      prevFilesRef.current = store.generatedFiles
+    if (prevAiGenTimeRef.current !== store.lastAiGenerationTime) {
+      prevAiGenTimeRef.current = store.lastAiGenerationTime
+      // Only mark time on AI generation — user edits won't reset this
       lastAiUpdateRef.current = Date.now()
       if (!isFixingRef.current && store.generatedFiles.length > 0) {
         store.resetRetries()
@@ -86,9 +87,11 @@ function SandpackSelfHealing() {
         setIsFixing(false)
         setFixStatus("")
         setIsWaitingForUser(false)
+        setLastFix(null)
       }
     }
-  }, [store.generatedFiles])
+    prevFilesRef.current = store.generatedFiles
+  }, [store.generatedFiles, store.lastAiGenerationTime])
 
   // Listen for Sandpack messages
   useEffect(() => {
@@ -144,11 +147,13 @@ function SandpackSelfHealing() {
           // AI-generated errors → fix immediately
           const currentState = useCodeGenStore.getState()
           if (!isFixingRef.current && currentState.retryCount < currentState.maxRetries) {
+            useToastStore.getState().addToast("info", `Detected ${errors.length} error${errors.length > 1 ? "s" : ""}, auto-fixing...`)
             triggerFix(errors)
           }
         } else {
           // User-edited errors → wait 10s after last edit
           setIsWaitingForUser(true)
+          useToastStore.getState().addToast("info", `Detected ${errors.length} error${errors.length > 1 ? "s" : ""} in edited code. Auto-fix in ${USER_FIX_DELAY_MS / 1000}s...`)
           debounceRef.current = setTimeout(() => {
             const currentState = useCodeGenStore.getState()
             if (
@@ -212,11 +217,13 @@ function SandpackSelfHealing() {
       setLastFix({ beforeFiles: [...beforeFiles], afterFiles: result.files })
 
       currentState.setGeneratedFiles(result.files)
+      currentState.markAiGenerationComplete()
       currentState.setTokensUsed(currentState.tokensUsed + result.tokensUsed)
 
       // Clear errors for the next compilation cycle
       errorsRef.current = []
       setFixStatus("")
+      useToastStore.getState().addToast("success", `Fixed ${errors.length} error${errors.length > 1 ? "s" : ""} (attempt ${attemptNum})`)
     } catch (err) {
       const isAbort = err instanceof DOMException && err.name === "AbortError"
       if (isAbort) {
