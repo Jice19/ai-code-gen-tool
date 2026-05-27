@@ -247,6 +247,8 @@ export async function runGeneration(
       useCodeGenStore.getState().appendStreamingContent(chunk)
     }, abortController.signal)
 
+    // Save current files to history before replacing (always, including the very first generation)
+    store.pushToHistory(result.files)
     store.setGeneratedFiles(result.files)
     store.setTokensUsed(
       useCodeGenStore.getState().tokensUsed + result.tokensUsed

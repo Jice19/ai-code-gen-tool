@@ -16,6 +16,11 @@ export function CodeEditor() {
     isGenerating,
     language: storeLanguage,
     updateFileContent,
+    generationHistory,
+    historyIndex,
+    undoGeneration,
+    redoGeneration,
+    setGeneratedFiles,
   } = useCodeGenStore()
 
   const activeFile = generatedFiles[activeFileIndex]
@@ -79,10 +84,37 @@ export function CodeEditor() {
   return (
     <div className="flex flex-col h-full">
       {generatedFiles.length > 0 && (
-        <div className="flex gap-1 px-4 py-2 border-b border-zinc-800 overflow-x-auto">
+        <div className="flex items-center gap-1 px-4 py-2 border-b border-zinc-800 overflow-x-auto">
           {generatedFiles.map((file, i) => (
             <FileTab key={file.name} name={file.name} index={i} />
           ))}
+          <div className="ml-auto flex items-center gap-0.5 shrink-0">
+            <button
+              className="px-1.5 py-0.5 text-xs text-zinc-500 hover:text-zinc-300 disabled:opacity-30 disabled:cursor-not-allowed rounded transition-colors"
+              disabled={historyIndex <= 0}
+              title="Undo (previous version)"
+              onClick={() => {
+                const prev = undoGeneration()
+                if (prev) setGeneratedFiles(prev)
+              }}
+            >
+              ↩
+            </button>
+            <button
+              className="px-1.5 py-0.5 text-xs text-zinc-500 hover:text-zinc-300 disabled:opacity-30 disabled:cursor-not-allowed rounded transition-colors"
+              disabled={historyIndex >= generationHistory.length - 1}
+              title="Redo (next version)"
+              onClick={() => {
+                const next = redoGeneration()
+                if (next) setGeneratedFiles(next)
+              }}
+            >
+              ↪
+            </button>
+            <span className="text-[10px] text-zinc-600 ml-1">
+              {historyIndex >= 0 ? `v${historyIndex + 1}/${generationHistory.length}` : ""}
+            </span>
+          </div>
         </div>
       )}
       <div className="flex-1 relative">

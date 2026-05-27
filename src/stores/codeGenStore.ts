@@ -39,6 +39,13 @@ interface CodeGenState {
   setCapturedErrors: (errors: CapturedError[]) => void
   addFixAttempt: (attempt: FixAttempt) => void
 
+  // History
+  generationHistory: GeneratedFile[][]
+  historyIndex: number
+  pushToHistory: (files: GeneratedFile[]) => void
+  undoGeneration: () => GeneratedFile[] | null
+  redoGeneration: () => GeneratedFile[] | null
+
   // Chat
   chatMessages: ChatMessage[]
   addChatMessage: (msg: ChatMessage) => void
@@ -97,6 +104,29 @@ export const useCodeGenStore = create<CodeGenState>((set, get) => ({
   setCapturedErrors: (capturedErrors) => set({ capturedErrors }),
   addFixAttempt: (attempt) =>
     set((s) => ({ fixHistory: [...s.fixHistory, attempt] })),
+
+  // History defaults
+  generationHistory: [],
+  historyIndex: -1,
+  pushToHistory: (files) =>
+    set((s) => ({
+      generationHistory: [...s.generationHistory.slice(0, s.historyIndex + 1), files],
+      historyIndex: s.historyIndex + 1,
+    })),
+  undoGeneration: () => {
+    const { generationHistory, historyIndex } = get()
+    if (historyIndex <= 0) return null
+    const newIndex = historyIndex - 1
+    set({ historyIndex: newIndex })
+    return generationHistory[newIndex]
+  },
+  redoGeneration: () => {
+    const { generationHistory, historyIndex } = get()
+    if (historyIndex >= generationHistory.length - 1) return null
+    const newIndex = historyIndex + 1
+    set({ historyIndex: newIndex })
+    return generationHistory[newIndex]
+  },
 
   // Chat defaults
   chatMessages: [],

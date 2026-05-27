@@ -197,6 +197,7 @@ function SandpackSelfHealing() {
         timestamp: Date.now(),
       })
 
+      currentState.pushToHistory(result.files)
       currentState.setGeneratedFiles(result.files)
       currentState.setTokensUsed(currentState.tokensUsed + result.tokensUsed)
 
