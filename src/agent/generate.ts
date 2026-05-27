@@ -18,6 +18,11 @@ function stripMarkdownFences(content: string): string {
   return cleaned.trim()
 }
 
+function stripPlanComments(content: string): string {
+  // Remove "// plan:" comment lines from the beginning of the output
+  return content.replace(/^\/\/ plan:.*\n/gm, "").trim()
+}
+
 // Extract code blocks from markdown when LLM ignores "no markdown" instructions
 function extractMarkdownCodeBlocks(content: string): { filename: string; content: string; language: string }[] {
   const blocks: { filename: string; content: string; language: string }[] = []
@@ -75,17 +80,18 @@ function parseGeneratedFiles(
     }
 
     // Single file — no delimiter and no code blocks
+    const stripped = stripPlanComments(cleaned)
     const nameMatch =
-      cleaned.match(/function\s+(\w+)/) ??
-      cleaned.match(/const\s+(\w+)/) ??
-      cleaned.match(/defineComponent\(\s*["'](\w+)["']/) ??
-      cleaned.match(/export\s+default\s*\{/)
+      stripped.match(/function\s+(\w+)/) ??
+      stripped.match(/const\s+(\w+)/) ??
+      stripped.match(/defineComponent\(\s*["'](\w+)["']/) ??
+      stripped.match(/export\s+default\s*\{/)
     const componentName = nameMatch?.[1] ?? "GeneratedComponent"
 
     return [
       {
         name: `${componentName}.${ext}`,
-        content: cleaned,
+        content: stripped,
         language: language === "typescript" ? "typescript" : "javascript",
       },
     ]
@@ -124,7 +130,7 @@ function parseGeneratedFiles(
     : [
         {
           name: `GeneratedComponent.${ext}`,
-          content: cleaned,
+          content: stripPlanComments(cleaned),
           language: framework === "vue" ? "html" : language === "typescript" ? "typescript" : "javascript",
         },
       ]

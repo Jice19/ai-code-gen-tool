@@ -51,6 +51,9 @@ User: "A simple counter button with + and -"
 
 Your ENTIRE response (nothing before or after):
 
+// plan: Single Counter component
+// plan: State — count (number, initialized to 0)
+// plan: Events — two buttons call setCount(c => c ± 1)
 import { useState } from "react"
 
 export default function Counter() {
@@ -90,6 +93,9 @@ User: "A simple counter button with + and -"
 
 Your ENTIRE response (nothing before or after):
 
+// plan: Single Counter.vue SFC
+// plan: State — count ref (number, initialized to 0)
+// plan: Events — two buttons modify count directly
 <script setup lang="ts">
 import { ref } from "vue"
 
@@ -147,9 +153,17 @@ function reactSystemPrompt(language: Language): string {
 
 ## Critical: Output ONLY raw code
 - Your ENTIRE response must be nothing but code. No markdown headings, no descriptions, no file trees, no usage examples, no summaries, no explanations.
+- **Exception:** You MAY start with 2-5 lines of "// plan:" comments describing your architecture before the code.
 - Do NOT use markdown code fences (\`\`\`) anywhere.
 - If the user asks for a component, output ONLY the source files — nothing else.
 - Do not say "Here is the component" or any similar preamble.
+
+## Planning (recommended)
+Before writing code, output a brief plan as "// plan:" comments:
+// plan: ComponentName — purpose
+// plan: State — varName (type, initial value)
+// plan: Events — onClick → handlerName
+// plan: Children — ChildA receives propX, ChildB calls onY callback
 
 ## Rules
 - Framework: React 19 (functional components with hooks)
@@ -197,9 +211,17 @@ function vueSystemPrompt(language: Language): string {
 
 ## Critical: Output ONLY raw code
 - Your ENTIRE response must be nothing but code. No markdown headings, no descriptions, no file trees, no usage examples, no summaries, no explanations.
+- **Exception:** You MAY start with 2-5 lines of "// plan:" comments describing your architecture before the code.
 - Do NOT use markdown code fences (\`\`\`) anywhere.
 - If the user asks for a component, output ONLY the source files — nothing else.
 - Do not say "Here is the component" or any similar preamble.
+
+## Planning (recommended)
+Before writing code, output a brief plan as "// plan:" comments:
+// plan: ComponentName — purpose
+// plan: State — varName (type, initial value)
+// plan: Events — @event → handlerName
+// plan: Children — ChildA receives propX, ChildB emits onY event
 
 ## Rules
 - Framework: Vue 3 (Composition API with <script setup ${lang === "ts" ? 'lang="ts"' : ""}>)
