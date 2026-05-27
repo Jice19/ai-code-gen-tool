@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect, useRef } from "react"
-import { InputPanel, ApiSettings, useApiSettings, CodeEditor, PreviewPanel, ChatPanel, ExportToolbar } from "./components"
+import { InputPanel, ApiSettings, useApiSettings, CodeEditor, PreviewPanel, ChatPanel, ExportToolbar, ToastContainer } from "./components"
 import { useCodeGenStore } from "./stores/codeGenStore"
+import { useToastStore } from "./stores/toastStore"
 import { runGeneration } from "./agent"
 import type { ProviderConfig } from "./agent"
 
@@ -33,7 +34,7 @@ function App() {
 
   const handleGenerate = useCallback(() => {
     if (!resolveApiKey()) {
-      alert("Please configure your LLM API key in Settings first.")
+      useToastStore.getState().addToast("error", "Please configure your LLM API key in Settings first.")
       return
     }
     if (mode === "chat") {
@@ -50,7 +51,7 @@ function App() {
 
   const handleChatSend = useCallback((message: string) => {
     if (!resolveApiKey()) {
-      alert("Please configure your LLM API key in Settings first.")
+      useToastStore.getState().addToast("error", "Please configure your LLM API key in Settings first.")
       return
     }
     runGeneration(buildConfig(), message)
@@ -119,6 +120,7 @@ function App() {
           <ChatPanel onSend={handleChatSend} />
         </aside>
       </main>
+      <ToastContainer />
     </div>
   )
 }
