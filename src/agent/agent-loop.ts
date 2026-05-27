@@ -9,7 +9,8 @@ import { useCodeGenStore } from "../stores/codeGenStore"
 const MAX_TURNS = 15
 
 // Parse a single <tool_call> tag from LLM output
-function parseToolCall(content: string): { thought: string; toolCall: ToolCall | null } {
+// Returns the tool call if valid JSON, or an error message if malformed
+function parseToolCall(content: string): { thought: string; toolCall: ToolCall | null; parseError?: string } {
   const tagStart = content.indexOf("<tool_call>")
   if (tagStart === -1) {
     return { thought: content.trim(), toolCall: null }
@@ -17,7 +18,8 @@ function parseToolCall(content: string): { thought: string; toolCall: ToolCall |
 
   const tagEnd = content.indexOf("</tool_call>")
   if (tagEnd === -1) {
-    return { thought: content.trim(), toolCall: null }
+    // Unclosed tag — treat as no valid tool call
+    return { thought: content.trim(), toolCall: null, parseError: "Missing closing </tool_call> tag" }
   }
 
   const thought = content.slice(0, tagStart).trim()
@@ -30,8 +32,9 @@ function parseToolCall(content: string): { thought: string; toolCall: ToolCall |
       ? { name: parsed.tool_name, arguments: parsed.parameters ?? parsed.arguments ?? {} }
       : { name: parsed.name, arguments: parsed.arguments ?? {} }
     return { thought, toolCall }
-  } catch {
-    return { thought: content.trim(), toolCall: null }
+  } catch (e) {
+    const errMsg = e instanceof SyntaxError ? e.message : "Invalid JSON"
+    return { thought, toolCall: null, parseError: `JSON parse error: ${errMsg}. Ensure newlines in content are escaped as \\n and double-quotes as \\\".` }
   }
 }
 
@@ -113,7 +116,7 @@ export async function* runAgentLoop(
     }
 
     // Parse the response
-    const { thought, toolCall } = parseToolCall(fullContent)
+    const { thought, toolCall, parseError } = parseToolCall(fullContent)
 
     // Accumulate token usage
     totalTokens += turnTokens
@@ -130,8 +133,17 @@ export async function* runAgentLoop(
     // Add assistant response to conversation history
     messages.push({ role: "assistant", content: fullContent.trim() })
 
-    // If no tool call or done, stop
+    // If no tool call: either JSON was malformed (retry) or genuinely no tool call (done)
     if (!toolCall) {
+      if (parseError) {
+        // JSON parsing failed — tell LLM to fix the escaping and retry
+        step.result = { success: false, message: parseError }
+        steps.push(step)
+        yield { type: "step", step }
+        messages.push({ role: "user", content: `Tool result (failed): ${parseError}\n\nPlease re-output the tool call with properly escaped JSON. Make sure all newlines in code content are escaped as \\\\n and all double quotes as \\\\\".` })
+        continue
+      }
+      // Genuinely no tool call — assume done
       step.result = { success: true, message: "No tool call — assuming done." }
       steps.push(step)
       yield { type: "step", step }
@@ -158,6 +170,14 @@ export async function* runAgentLoop(
 
     yield { type: "step", step }
 
+    // Stream current files to code editor after each file operation
+    if (toolCall.name === "writeFile" || toolCall.name === "readFile") {
+      const currentFiles = fs.toGeneratedFiles()
+      if (currentFiles.length > 0) {
+        yield { type: "files", files: currentFiles }
+      }
+    }
+
     // If done, exit loop
     if (toolCall.name === "done") {
       break
@@ -167,7 +187,7 @@ export async function* runAgentLoop(
     messages.push({ role: "user", content: buildObservation(result) })
   }
 
-  // Extract generated files from VirtualFS
+  // Final: yield all files from VirtualFS
   const files = fs.toGeneratedFiles()
 
   if (files.length > 0) {

@@ -432,8 +432,9 @@ For each turn, output your thinking in plain text, then optionally ONE tool call
 
 IMPORTANT:
 - Each turn may contain at MOST one tool call
-- Tool call JSON must be on a single line between the tags
 - Write your thought first, then the tool call (if needed)
+- JSON may span multiple lines — this is easier to read
+- **CRITICAL**: All newlines in code content MUST be escaped as \\n and double-quotes as \\\"
 - Use done() to finish — do NOT stop without calling done()
 
 ## Available Tools

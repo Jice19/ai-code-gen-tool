@@ -335,10 +335,8 @@ export async function runGeneration(
         if (event.type === "step" && event.step) {
           store.addAgentStep(event.step)
         } else if (event.type === "files" && event.files) {
-          // Save current files to history before replacing
-          store.pushToHistory(event.files)
+          // Stream file updates to code editor in real-time (don't push to history yet)
           store.setGeneratedFiles(event.files)
-          store.markAiGenerationComplete()
         } else if (event.type === "error" && event.error) {
           useToastStore.getState().addToast("error", `Agent error: ${event.error}`)
           const errMsg: ChatMessage = {
@@ -349,6 +347,12 @@ export async function runGeneration(
           }
           store.addChatMessage(errMsg)
         }
+      }
+
+      // After agent completes, save to history
+      if (store.generatedFiles.length > 0) {
+        store.pushToHistory(store.generatedFiles)
+        store.markAiGenerationComplete()
       }
 
       const doneMsg: ChatMessage = {
