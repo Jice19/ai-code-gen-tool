@@ -1,6 +1,7 @@
 import { streamGenerate, buildMessages, buildChatMessages, buildFixPrompt } from "./index"
 import type { ProviderConfig } from "./index"
 import { useCodeGenStore } from "../stores/codeGenStore"
+import { useToastStore } from "../stores/toastStore"
 import type { GeneratedFile, ChatMessage, CapturedError, Framework } from "../types"
 
 let lastProviderConfig: ProviderConfig | null = null
@@ -267,10 +268,9 @@ async function runChatGeneration(
     if (isAbort) {
       store.appendChatContent(assistantId, "\n\n*[Generation cancelled.]*")
     } else {
-      store.appendChatContent(
-        assistantId,
-        `\n\n*[Error: ${err instanceof Error ? err.message : "Generation failed"}]*`
-      )
+      const errMsg = err instanceof Error ? err.message : "Generation failed"
+      store.appendChatContent(assistantId, `\n\n*[Error: ${errMsg}]*`)
+      useToastStore.getState().addToast("error", `Chat failed: ${errMsg}`)
     }
   } finally {
     store.setIsGenerating(false)
@@ -346,15 +346,19 @@ export async function runGeneration(
     store.addChatMessage(assistantMsg)
   } catch (err) {
     const isAbort = err instanceof DOMException && err.name === "AbortError"
+    const errMessage = err instanceof Error ? err.message : "Generation failed"
     const errorMsg: ChatMessage = {
       id: (Date.now() + 1).toString(),
       role: "assistant",
       content: isAbort
         ? "Generation cancelled."
-        : `Error: ${err instanceof Error ? err.message : "Generation failed"}`,
+        : `Error: ${errMessage}`,
       timestamp: Date.now(),
     }
     store.addChatMessage(errorMsg)
+    if (!isAbort) {
+      useToastStore.getState().addToast("error", `Generation failed: ${errMessage}`)
+    }
   } finally {
     store.setIsGenerating(false)
     store._setAbortController(null)

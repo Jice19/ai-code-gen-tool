@@ -10,6 +10,7 @@ import { cn } from "../lib/utils"
 import { useState, useEffect, useRef, useCallback } from "react"
 import { runSelfHealingFix, getLastConfig } from "../agent"
 import { DiffView } from "./DiffView"
+import { useToastStore } from "../stores/toastStore"
 import type { CapturedError, GeneratedFile } from "../types"
 
 function buildSandpackFiles(
@@ -226,6 +227,7 @@ function SandpackSelfHealing() {
         setFixStatus(
           `Fix attempt ${attemptNum} failed. ${currentState.retryCount >= currentState.maxRetries ? "Max retries reached." : "Retrying..."}`
         )
+        useToastStore.getState().addToast("error", `Self-healing fix attempt ${attemptNum} failed`)
       }
     } finally {
       isFixingRef.current = false
@@ -237,6 +239,7 @@ function SandpackSelfHealing() {
         setFixStatus(
           `Auto-fix failed after ${latestState.maxRetries} attempts. Last code preserved.`
         )
+        useToastStore.getState().addToast("error", `Self-healing exhausted after ${latestState.maxRetries} attempts`)
       }
     }
   }, [])
