@@ -43,6 +43,103 @@ export function buildChatMessages(
   return msgs
 }
 
+// --- Few-Shot Examples ---
+
+const REACT_FEW_SHOT = `## Example — Correct Output Format
+
+User: "A simple counter button with + and -"
+
+Your ENTIRE response (nothing before or after):
+
+import { useState } from "react"
+
+export default function Counter() {
+  const [count, setCount] = useState(0)
+
+  return (
+    <div className="flex items-center gap-4 p-4">
+      <button
+        className="px-4 py-2 bg-zinc-700 text-white rounded-lg hover:bg-zinc-600 transition-colors"
+        onClick={() => setCount((c) => c - 1)}
+      >
+        -
+      </button>
+      <span className="text-2xl font-bold text-zinc-100">{count}</span>
+      <button
+        className="px-4 py-2 bg-zinc-700 text-white rounded-lg hover:bg-zinc-600 transition-colors"
+        onClick={() => setCount((c) => c + 1)}
+      >
+        +
+      </button>
+    </div>
+  )
+}
+
+## Wrong — NEVER do this:
+\`\`\`tsx
+import { useState } from "react"
+...
+\`\`\`
+Here is a Counter component that... ← NO EXPLANATIONS
+
+// file: Counter.tsx  ← Only use "// file:" delimiter when you need MULTIPLE files`
+
+const VUE_FEW_SHOT = `## Example — Correct Output Format
+
+User: "A simple counter button with + and -"
+
+Your ENTIRE response (nothing before or after):
+
+<script setup lang="ts">
+import { ref } from "vue"
+
+const count = ref(0)
+</script>
+
+<template>
+  <div class="counter">
+    <button class="btn" @click="count--">-</button>
+    <span class="value">{{ count }}</span>
+    <button class="btn" @click="count++">+</button>
+  </div>
+</template>
+
+<style scoped>
+.counter {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 1rem;
+}
+.btn {
+  padding: 0.5rem 1rem;
+  background: #3f3f46;
+  color: #fff;
+  border: none;
+  border-radius: 0.5rem;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.btn:hover {
+  background: #52525b;
+}
+.value {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #f4f4f5;
+}
+</style>
+
+## Wrong — NEVER do this:
+\`\`\`vue
+<script setup lang="ts">
+...
+</script>
+\`\`\`
+Here is a Vue Counter component... ← NO EXPLANATIONS
+
+// file: Counter.vue  ← Only use "// file:" delimiter when you need MULTIPLE files`
+
 // --- Code Generation Mode ---
 
 function reactSystemPrompt(language: Language): string {
@@ -89,7 +186,9 @@ import { useState } from "react"
 import { useState } from "react"
 ...
 
-If only one file is needed, just output the code directly without the delimiter.`
+If only one file is needed, just output the code directly without the delimiter.
+
+${REACT_FEW_SHOT}`
 }
 
 function vueSystemPrompt(language: Language): string {
@@ -114,11 +213,11 @@ function vueSystemPrompt(language: Language): string {
 - For unique IDs use crypto.randomUUID() or Math.random().toString(36)
 
 ## Defensive Coding
-- Every useState MUST have an initial value — never call useState() with no arguments
-- All component props that receive arrays/objects MUST have default values (e.g. items = [])
+- Every ref() and reactive() MUST have an initial value — never call ref() with no arguments
+- All props with objects/arrays MUST have default values via defineProps defaults or default values
 - Before accessing .length, .map(), .filter(), or any array method, verify the value is not undefined
 - Render an explicit "empty state" (e.g. "No items found") when a list is empty
-- If a prop could be undefined, use optional chaining (?.) and nullish coalescing (??)
+- If a value could be undefined, use optional chaining (?.) and nullish coalescing (??)
 
 ## Multi-file output format
 When the component needs multiple files (e.g. separate composables, sub-components, or types),
@@ -136,7 +235,9 @@ import { ref } from "vue"
 import { ref } from "vue"
 ...
 
-If only one file is needed, just output the code directly without the delimiter.`
+If only one file is needed, just output the code directly without the delimiter.
+
+${VUE_FEW_SHOT}`
 }
 
 export function buildSystemPrompt(opts: PromptOpts): string {
