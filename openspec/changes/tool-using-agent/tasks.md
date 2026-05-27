@@ -13,19 +13,19 @@
 - [x] 7. Mode 切换 — InputPanel 增加 agent 选项，code→quick 重命名，Zustand store 更新
 - [x] 8. Agent Panel UI 组件 — 可折叠步骤卡片，展示 Thought / Action / Observation
 - [x] 9. Agent Loop 集成到 App — `runGeneration` 中 agent mode 分支调用 `runAgentLoop`
-- [ ] 10. 端到端测试 — Agent 生成完整组件流程验证
+- [x] 10. 端到端测试 — Agent 生成完整组件流程验证
 
 ## Progress
 
 | # | Task | Status |
 |---|------|--------|
-| 1 | Type Definitions | ⬜ |
-| 2 | Virtual FS | ⬜ |
-| 3 | Tool Registry | ⬜ |
-| 4 | Agent System Prompt | ⬜ |
-| 5 | Agent Loop Core | ⬜ |
-| 6 | Streaming Parser Enhancement | ⬜ |
-| 7 | Mode Switch | ⬜ |
-| 8 | Agent Panel UI | ⬜ |
-| 9 | App Integration | ⬜ |
-| 10 | E2E Test | ⬜ |
+| 1 | Type Definitions | ✅ |
+| 2 | Virtual FS | ✅ |
+| 3 | Tool Registry | ✅ |
+| 4 | Agent System Prompt | ✅ |
+| 5 | Agent Loop Core | ✅ |
+| 6 | Streaming Parser Enhancement | ✅ |
+| 7 | Mode Switch | ✅ |
+| 8 | Agent Panel UI | ✅ |
+| 9 | App Integration | ✅ |
+| 10 | E2E Test | ✅ |
