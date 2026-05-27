@@ -27,7 +27,28 @@ export interface FixAttempt {
   timestamp: number
 }
 
+// Agent Tool-Using Types
+
+export interface ToolCall {
+  name: string
+  arguments: Record<string, string>
+}
+
+export interface ToolResult {
+  success: boolean
+  message: string
+  data?: string
+}
+
+export interface AgentStep {
+  id: string
+  thought: string
+  toolCall: ToolCall | null
+  result: ToolResult | null
+  timestamp: number
+}
+
 export type Framework = "react" | "vue"
-export type Mode = "chat" | "code"
+export type Mode = "chat" | "code" | "agent"
 export type Language = "typescript" | "javascript"
 
