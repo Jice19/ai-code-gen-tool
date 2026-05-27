@@ -352,11 +352,9 @@ export async function runSelfHealingFix(
   currentFiles: GeneratedFile[]
 ): Promise<{ files: GeneratedFile[]; tokensUsed: number }> {
   const store = useCodeGenStore.getState()
-  const previousFixFailed =
-    store.fixHistory.length > 0 &&
-    store.fixHistory[store.fixHistory.length - 1].afterFiles.length > 0
+  const attempt = store.retryCount
 
-  const messages = buildFixPrompt(errors, currentFiles, previousFixFailed)
+  const messages = buildFixPrompt(errors, currentFiles, attempt)
 
   let fullContent = ""
   let tokensUsed = 0

@@ -309,40 +309,81 @@ export function buildMessages(
 
 // --- Self-Healing Fix ---
 
+function classifyErrors(errors: CapturedError[]): {
+  compileErrors: CapturedError[]
+  runtimeErrors: CapturedError[]
+} {
+  const compileErrors = errors.filter((e) => e.source === "compile")
+  const runtimeErrors = errors.filter((e) => e.source === "runtime")
+  return { compileErrors, runtimeErrors }
+}
+
+function getStrategyForAttempt(
+  attempt: number,
+  { compileErrors, runtimeErrors }: ReturnType<typeof classifyErrors>
+): string {
+  if (attempt >= 3) {
+    // Last resort: focus on the first error only
+    const first = compileErrors[0] ?? runtimeErrors[0]
+    if (!first) return "Fix the first error and output all files."
+    return `Fix ONLY this one error and output all files unchanged except for this fix:\n- ${first.path}:${first.line} — ${first.message}`
+  }
+
+  if (attempt >= 2) {
+    // Second attempt: be more careful, output only changed files
+    return "Fix ALL errors. Output ONLY the files that changed — do NOT output unchanged files. Use the exact same // file: delimiter format."
+  }
+
+  return "Fix ALL errors. Output ALL files using the exact // file: delimiter format."
+}
+
 export function buildFixPrompt(
   errors: CapturedError[],
   files: GeneratedFile[],
-  previousFixFailed?: boolean
+  attempt: number = 1
 ): Array<{ role: "system" | "user"; content: string }> {
-  const errorList = errors
-    .map(
-      (e) =>
-        `- ${e.path}:${e.line}:${e.column} — [${e.source}] ${e.title}: ${e.message}`
-    )
-    .join("\n")
+  const { compileErrors, runtimeErrors } = classifyErrors(errors)
+
+  const compileList = compileErrors.length > 0
+    ? `### Compile Errors\n${compileErrors
+        .map((e) => `- ${e.path}:${e.line}:${e.column} — ${e.message}`)
+        .join("\n")}`
+    : ""
+
+  const runtimeList = runtimeErrors.length > 0
+    ? `### Runtime Errors\n${runtimeErrors
+        .map((e) => `- ${e.message}`)
+        .join("\n")}`
+    : ""
+
+  const errorList = [compileList, runtimeList].filter(Boolean).join("\n\n")
 
   const fileList = files
     .map((f) => `### ${f.name}\n\`\`\`\n${f.content}\n\`\`\``)
     .join("\n\n")
 
-  let userMessage = `The following errors occurred in the generated code. Fix ALL of them and output the corrected files using the same "// file:" delimiter format.
+  const strategy = getStrategyForAttempt(attempt, { compileErrors, runtimeErrors })
 
-## Errors
-${errorList}
-
-## Current Files
-${fileList}`
-
-  if (previousFixFailed) {
-    userMessage += `\n\n**IMPORTANT:** Your previous fix did NOT resolve these issues. Please take a different approach this time.`
+  // Guidance based on error types
+  let guidance = ""
+  if (compileErrors.length > 0) {
+    guidance += `\n### Compile Error Guidance\n- Check that all imports exist and paths are correct.\n- Verify syntax: matching brackets, correct JSX/HTML structure.\n- Ensure all referenced variables/functions are defined.`
+  }
+  if (runtimeErrors.length > 0) {
+    guidance += `\n### Runtime Error Guidance\n- Add null/undefined checks before accessing properties.\n- Verify array methods are called on actual arrays.\n- Ensure event handlers are properly bound.`
+  }
+  if (attempt >= 2 && errors.length > 0) {
+    guidance += `\n\n**WARNING:** A previous fix attempt for these errors failed. Take a fundamentally different approach this time — do NOT repeat the same fix pattern.`
   }
 
   return [
     {
       role: "system",
-      content:
-        "You are a code fix expert. Output ONLY the corrected files using the exact same format (// file: path/to/File.ext delimiter). Do NOT add explanations, markdown headings, or code fences.",
+      content: `You are a code fix expert. ${strategy} Do NOT add markdown headings, code fences, or explanations — output ONLY the raw code with the "// file:" delimiter.`,
     },
-    { role: "user", content: userMessage },
+    {
+      role: "user",
+      content: `Fix the following errors in the code:\n\n${errorList}\n\n## Current Files\n${fileList}\n${guidance}`,
+    },
   ]
 }
