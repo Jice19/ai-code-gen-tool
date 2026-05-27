@@ -1,7 +1,7 @@
 import { streamGenerate, buildMessages, buildChatMessages, buildFixPrompt } from "./index"
 import type { ProviderConfig } from "./index"
 import { useCodeGenStore } from "../stores/codeGenStore"
-import type { GeneratedFile, ChatMessage, CapturedError } from "../types"
+import type { GeneratedFile, ChatMessage, CapturedError, Framework } from "../types"
 
 let lastProviderConfig: ProviderConfig | null = null
 export function getLastConfig(): ProviderConfig | null {
@@ -192,20 +192,28 @@ function parseGeneratedFiles(
       ]
 }
 
+export interface GenerateCodeParams {
+  config: ProviderConfig
+  prompt: string
+  language: string
+  framework?: string
+  previousFiles: GeneratedFile[]
+  chatMessages: ChatMessage[]
+}
+
 export async function generateCode(
-  config: ProviderConfig,
+  params: GenerateCodeParams,
   onChunk?: (text: string) => void,
   signal?: AbortSignal
 ): Promise<{ files: GeneratedFile[]; tokensUsed: number }> {
-  const state = useCodeGenStore.getState()
-  const { prompt, language, framework, generatedFiles, chatMessages } = state
+  const { config, prompt, language, framework, previousFiles, chatMessages } = params
 
-  const previousCode = generatedFiles.length > 0
-    ? generatedFiles.map((f) => f.content).join("\n\n")
+  const previousCode = previousFiles.length > 0
+    ? previousFiles.map((f) => f.content).join("\n\n")
     : undefined
 
   const messages = buildMessages(
-    { prompt, language, framework, previousCode },
+    { prompt, language, framework: framework as Framework | undefined, previousCode },
     chatMessages.length > 0 ? chatMessages : undefined
   )
 
@@ -311,7 +319,14 @@ export async function runGeneration(
   store._setAbortController(abortController)
 
   try {
-    const result = await generateCode(config, (chunk) => {
+    const result = await generateCode({
+      config,
+      prompt: store.prompt,
+      language: store.language,
+      framework: store.framework,
+      previousFiles: store.generatedFiles,
+      chatMessages: store.chatMessages,
+    }, (chunk) => {
       useCodeGenStore.getState().appendStreamingContent(chunk)
     }, abortController.signal)
 
@@ -349,11 +364,11 @@ export async function runGeneration(
 export async function runSelfHealingFix(
   config: ProviderConfig,
   errors: CapturedError[],
-  currentFiles: GeneratedFile[]
+  currentFiles: GeneratedFile[],
+  attempt: number,
+  language: string,
+  framework: string
 ): Promise<{ files: GeneratedFile[]; tokensUsed: number }> {
-  const store = useCodeGenStore.getState()
-  const attempt = store.retryCount
-
   const messages = buildFixPrompt(errors, currentFiles, attempt)
 
   let fullContent = ""
@@ -366,8 +381,8 @@ export async function runSelfHealingFix(
 
   const files = parseGeneratedFiles(
     fullContent,
-    store.language,
-    store.framework
+    language,
+    framework
   )
 
   const assistantMsg: ChatMessage = {
@@ -376,7 +391,7 @@ export async function runSelfHealingFix(
     content: `[Self-healing] Fixed ${errors.length} error${errors.length > 1 ? "s" : ""}. ${tokensUsed} tokens used.`,
     timestamp: Date.now(),
   }
-  store.addChatMessage(assistantMsg)
+  useCodeGenStore.getState().addChatMessage(assistantMsg)
 
   return { files, tokensUsed }
 }

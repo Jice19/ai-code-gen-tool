@@ -190,7 +190,14 @@ function SandpackSelfHealing() {
     const beforeFiles = [...currentState.generatedFiles]
 
     try {
-      const result = await runSelfHealingFix(config, errors, currentState.generatedFiles)
+      const result = await runSelfHealingFix(
+        config,
+        errors,
+        currentState.generatedFiles,
+        attemptNum,
+        currentState.language,
+        currentState.framework
+      )
 
       currentState.addFixAttempt({
         errors,
