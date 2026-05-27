@@ -23,6 +23,62 @@ function stripPlanComments(content: string): string {
   return content.replace(/^\/\/ plan:.*\n/gm, "").trim()
 }
 
+// Incrementally parse streaming content into partial file views
+function incrementalParse(content: string): GeneratedFile[] {
+  const lines = content.split("\n")
+  const files: GeneratedFile[] = []
+  let currentName = ""
+  let currentLines: string[] = []
+
+  // Skip plan comments at the very beginning
+  let i = 0
+  while (i < lines.length && lines[i].trimStart().startsWith("// plan:")) {
+    i++
+  }
+
+  for (; i < lines.length; i++) {
+    const match = lines[i].match(/^\/\/ file: (.+)$/)
+    if (match) {
+      if (currentName && currentLines.length > 0) {
+        files.push({
+          name: currentName,
+          content: currentLines.join("\n"),
+          language: inferLanguage(currentName),
+        })
+      }
+      currentName = match[1].trim()
+      currentLines = []
+    } else if (currentName) {
+      currentLines.push(lines[i])
+    } else {
+      // Before first delimiter — all lines belong to a default file
+      currentName = currentName || "_streaming"
+      currentLines.push(lines[i])
+    }
+  }
+
+  // Last file (still streaming or single file)
+  if (currentLines.length > 0) {
+    files.push({
+      name: currentName === "_streaming" ? "Component.tsx" : currentName,
+      content: currentLines.join("\n"),
+      language: inferLanguage(currentName),
+    })
+  }
+
+  return files
+}
+
+function inferLanguage(filename: string): string {
+  const ext = filename.split(".").pop() ?? ""
+  const langMap: Record<string, string> = {
+    tsx: "typescript", ts: "typescript",
+    jsx: "javascript", js: "javascript",
+    vue: "html", css: "css",
+  }
+  return langMap[ext] ?? "text"
+}
+
 // Extract code blocks from markdown when LLM ignores "no markdown" instructions
 function extractMarkdownCodeBlocks(content: string): { filename: string; content: string; language: string }[] {
   const blocks: { filename: string; content: string; language: string }[] = []
@@ -160,6 +216,12 @@ export async function generateCode(
     fullContent += chunk.content
     tokensUsed += chunk.tokens
     onChunk?.(chunk.content)
+
+    // Incrementally parse files so tabs appear during streaming
+    const partialFiles = incrementalParse(fullContent)
+    if (partialFiles.length > 0) {
+      useCodeGenStore.getState().setStreamingFiles(partialFiles)
+    }
   }
 
   const files = parseGeneratedFiles(fullContent, language, framework)

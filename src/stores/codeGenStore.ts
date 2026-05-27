@@ -17,12 +17,14 @@ interface CodeGenState {
   generatedFiles: GeneratedFile[]
   activeFileIndex: number
   streamingContent: string
+  streamingFiles: GeneratedFile[]
   tokensUsed: number
   setIsGenerating: (v: boolean) => void
   setGeneratedFiles: (files: GeneratedFile[]) => void
   setActiveFileIndex: (index: number) => void
   updateFileContent: (index: number, content: string) => void
   appendStreamingContent: (chunk: string) => void
+  setStreamingFiles: (files: GeneratedFile[]) => void
   setTokensUsed: (tokens: number) => void
   clearGeneration: () => void
   cancelGeneration: () => void
@@ -69,6 +71,7 @@ export const useCodeGenStore = create<CodeGenState>((set, get) => ({
   generatedFiles: [],
   activeFileIndex: 0,
   streamingContent: "",
+  streamingFiles: [],
   tokensUsed: 0,
   setIsGenerating: (isGenerating) => set({ isGenerating }),
   setGeneratedFiles: (generatedFiles) => set({ generatedFiles, activeFileIndex: 0 }),
@@ -81,9 +84,10 @@ export const useCodeGenStore = create<CodeGenState>((set, get) => ({
     })),
   appendStreamingContent: (chunk) =>
     set((s) => ({ streamingContent: s.streamingContent + chunk })),
+  setStreamingFiles: (streamingFiles) => set({ streamingFiles }),
   setTokensUsed: (tokensUsed) => set({ tokensUsed }),
   clearGeneration: () =>
-    set({ generatedFiles: [], streamingContent: "", tokensUsed: 0, activeFileIndex: 0 }),
+    set({ generatedFiles: [], streamingContent: "", streamingFiles: [], tokensUsed: 0, activeFileIndex: 0 }),
   cancelGeneration: () => {
     const { _abortController } = get()
     if (_abortController) {

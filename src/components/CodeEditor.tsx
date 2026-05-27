@@ -13,6 +13,7 @@ export function CodeEditor() {
     generatedFiles,
     activeFileIndex,
     streamingContent,
+    streamingFiles,
     isGenerating,
     language: storeLanguage,
     updateFileContent,
@@ -24,11 +25,18 @@ export function CodeEditor() {
   } = useCodeGenStore()
 
   const activeFile = generatedFiles[activeFileIndex]
+  // During streaming with partial files, show the last (most recently detected) file
+  const streamingActiveFile = streamingFiles[streamingFiles.length - 1]
   const displayContent = activeFile
     ? activeFile.content
+    : streamingActiveFile
+    ? streamingActiveFile.content
     : streamingContent || "// Your generated code will appear here..."
 
   const language = activeFile?.language ?? storeLanguage
+
+  // During streaming, show partial file tabs if available
+  const showFiles = generatedFiles.length > 0 ? generatedFiles : streamingFiles
 
   // Auto-scroll to bottom during streaming generation
   useEffect(() => {
@@ -83,10 +91,10 @@ export function CodeEditor() {
 
   return (
     <div className="flex flex-col h-full">
-      {generatedFiles.length > 0 && (
+      {showFiles.length > 0 && (
         <div className="flex items-center gap-1 px-4 py-2 border-b border-zinc-800 overflow-x-auto">
-          {generatedFiles.map((file, i) => (
-            <FileTab key={file.name} name={file.name} index={i} />
+          {showFiles.map((file, i) => (
+            <FileTab key={file.name} name={isGenerating ? file.name + " ●" : file.name} index={i} />
           ))}
           <div className="ml-auto flex items-center gap-0.5 shrink-0">
             <button
