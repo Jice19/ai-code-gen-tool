@@ -132,11 +132,11 @@ function App() {
           )}
           style={{ width: leftCollapsed ? 0 : SIDEBAR_W }}
         >
-          <div className="p-4 flex flex-col gap-4" style={{ minWidth: SIDEBAR_W }}>
+          <div className="p-4 flex flex-col gap-4 flex-1 min-h-0 overflow-y-auto" style={{ minWidth: SIDEBAR_W }}>
             <InputPanel onGenerate={handleGenerate} />
             <AgentPanel />
           </div>
-          <div className="mt-auto p-4 border-t border-zinc-800" style={{ minWidth: SIDEBAR_W }}>
+          <div className="p-4 border-t border-zinc-800 shrink-0" style={{ minWidth: SIDEBAR_W }}>
             <ApiSettings settings={settings} setSettings={setSettings} />
           </div>
         </aside>

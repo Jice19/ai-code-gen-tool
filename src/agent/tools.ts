@@ -15,7 +15,7 @@ export function createToolRegistry(fs: VirtualFS, getErrorsFn: () => string[]): 
     {
       name: "readFile",
       description: "Read the content of a file from the project.",
-      parameters: `{"path": "string — relative file path, e.g. 'src/App.tsx'"}`,
+      parameters: `Attr: path="relative/file/path" | Example: <tool_call name="readFile" path="src/App.tsx" />`,
       handler: (args) => {
         const path = args.path
         if (!path) return { success: false, message: "Missing required parameter: path" }
@@ -28,8 +28,8 @@ export function createToolRegistry(fs: VirtualFS, getErrorsFn: () => string[]): 
     },
     {
       name: "writeFile",
-      description: "Write or overwrite a file. This creates the file if it doesn't exist.",
-      parameters: `{"path": "string — relative file path", "content": "string — complete file source code"}`,
+      description: "Write a file. The path is an attribute, the code goes between the tags (no escaping needed).",
+      parameters: `Attr: path="relative/file/path" | Body: the complete source code`,
       handler: (args) => {
         const { path, content } = args
         if (!path) return { success: false, message: "Missing required parameter: path" }
@@ -41,7 +41,7 @@ export function createToolRegistry(fs: VirtualFS, getErrorsFn: () => string[]): 
     {
       name: "listFiles",
       description: "List all files currently in the project.",
-      parameters: "{}",
+      parameters: `Self-closing: <tool_call name="listFiles" />`,
       handler: () => {
         const files = fs.listFiles()
         if (files.length === 0) {
@@ -52,8 +52,8 @@ export function createToolRegistry(fs: VirtualFS, getErrorsFn: () => string[]): 
     },
     {
       name: "runCheck",
-      description: "Run a quick validation to check for obvious syntax issues in the current code. Always run this after writing files.",
-      parameters: `{"path": "string — optional, check a specific file. Omit to check all files."}`,
+      description: "Run quick validation for syntax issues. Always run after writing files.",
+      parameters: `Optional attr: path="file" (checks all files if omitted). Self-closing: <tool_call name="runCheck" />`,
       handler: (args) => {
         const errors: string[] = []
         const files = args.path ? [[args.path, fs.readFile(args.path)] as const] : [...fs.listFiles().map((p) => [p, fs.readFile(p)] as const)]
@@ -93,8 +93,8 @@ export function createToolRegistry(fs: VirtualFS, getErrorsFn: () => string[]): 
     },
     {
       name: "getErrors",
-      description: "Get the current compile/runtime error list from the Sandpack sandbox. Call this after writing files and waiting for compilation.",
-      parameters: "{}",
+      description: "Get compile/runtime errors from the Sandpack sandbox.",
+      parameters: `Self-closing: <tool_call name="getErrors" />`,
       handler: () => {
         const errors = getErrorsFn()
         if (errors.length === 0) {
@@ -105,8 +105,8 @@ export function createToolRegistry(fs: VirtualFS, getErrorsFn: () => string[]): 
     },
     {
       name: "done",
-      description: "Mark the task as complete. Call this when all files are written and checks pass.",
-      parameters: `{"summary": "string — one-line summary of what was built"}`,
+      description: "Mark the task as complete. Call when all files are written and checks pass.",
+      parameters: `Attr: summary="one-line description" | Example: <tool_call name="done" summary="Created Counter component" />`,
       handler: (args) => {
         return { success: true, message: `Task complete: ${args.summary || "Component generated"}` }
       },
