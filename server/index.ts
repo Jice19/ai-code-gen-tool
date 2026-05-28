@@ -1,24 +1,16 @@
-import { Hono } from "hono"
-import { cors } from "hono/cors"
 import { serve } from "@hono/node-server"
 import { serveStatic } from "@hono/node-server/serve-static"
 import { readFileSync, existsSync } from "node:fs"
-import { join } from "node:path"
-import { zipExportRoute } from "./routes/export"
+import { join, dirname } from "node:path"
+import { fileURLToPath } from "node:url"
+import { app } from "./app"
 
-const app = new Hono()
+const __dirname = dirname(fileURLToPath(import.meta.url))
 
-app.use("/*", cors({ origin: "*" }))
-
-app.route("/api/export", zipExportRoute)
-
-app.get("/api/health", (c) => c.json({ status: "ok" }))
-
-// Serve static files in production
-const distPath = join(import.meta.dirname, "..", "dist")
+// Serve static files in production (only when running standalone, not on Vercel)
+const distPath = join(__dirname, "..", "dist")
 if (existsSync(distPath)) {
   app.use("/*", serveStatic({ root: distPath }))
-  // SPA fallback: serve index.html for non-file routes
   app.get("*", async (c) => {
     try {
       const html = readFileSync(join(distPath, "index.html"), "utf-8")
