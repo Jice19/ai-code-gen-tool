@@ -1,7 +1,6 @@
 
 
-
-
+import { useEffect, useRef } from "react"
 import { useCodeGenStore } from "../stores/codeGenStore"
 import { cn } from "../lib/utils"
 import type { AgentStep } from "../types"
@@ -90,6 +89,13 @@ export function AgentPanel() {
   const agentSteps = useCodeGenStore((s) => s.agentSteps)
   const isGenerating = useCodeGenStore((s) => s.isGenerating)
   const mode = useCodeGenStore((s) => s.mode)
+  const bottomRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (agentSteps.length > 0) {
+      bottomRef.current?.scrollIntoView({ behavior: "smooth" })
+    }
+  }, [agentSteps.length])
 
   if (mode !== "agent") return null
 
@@ -130,6 +136,7 @@ export function AgentPanel() {
           Agent completed successfully.
         </p>
       )}
+      <div ref={bottomRef} />
     </div>
   )
 }
